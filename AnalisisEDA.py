@@ -128,6 +128,55 @@ class EDA:
                 #Agregamos el tamaño relativo de la etiqueta respecto a la imagen a las listas correspondientes
                 self.labelSizesWidth.append(width)
                 self.labelSizesHeight.append(height)
+    
+    def analyzePositionLabels(self):
+        """Realizacion de un analisis de la distribucion de las etiquetas especialmente (Verticalmente y horizontalmente)
+        """
+        
+        self.labelPositionsX = []
+        self.labelPositionsY = []
+        self.labelCuadrantesX = {
+            "Izquierda": 0,
+            "Centro": 0,
+            "Derecha": 0
+        }
+        self.labelCuadrantesY = {
+            "Arriba": 0,
+            "Centro": 0,
+            "Abajo": 0
+        }
+        
+        for label_path, labels in self.labels:
+            for label in labels:
+                text = label.strip().split()
+                if len(text) < 5:  # Verificar que la etiqueta tenga al menos 6 elementos (clase + 4 coordenadas)
+                    continue  # Saltar etiquetas mal formateadas
+                
+                #Obtenemos el tamaño de la imagen correspondiente a la etiqueta
+                x_center = float(text[1])
+                y_center = float(text[2])
+                
+                #Agregamos la posición de la etiqueta a las listas correspondientes
+                self.labelPositionsX.append(x_center)
+                self.labelPositionsY.append(y_center)
+                
+                #Clasificamos la posición horizontal de la etiqueta en cuadrantes
+                if x_center < 0.33:
+                    self.labelCuadrantesX["Izquierda"] += 1
+                elif x_center < 0.66:
+                    self.labelCuadrantesX["Centro"] += 1
+                else:
+                    self.labelCuadrantesX["Derecha"] += 1
+                
+                #Clasificamos la posición vertical de la etiqueta en cuadrantes
+                if y_center < 0.33:
+                    self.labelCuadrantesY["Arriba"] += 1
+                elif y_center < 0.66:
+                    self.labelCuadrantesY["Centro"] += 1
+                else:
+                    self.labelCuadrantesY["Abajo"] += 1
+    
+
 
 
 
@@ -146,22 +195,30 @@ eda = EDA()
 eda.loadImages(pathImages)
 eda.loadLabels(pathLabels)
 
-print("Número de imágenes cargadas:", len(eda.images))
-print("Número de etiquetas cargadas:", len(eda.labels))
+# print("Número de imágenes cargadas:", len(eda.images))
+# print("Número de etiquetas cargadas:", len(eda.labels))
 
-#Obtenemos el tipo de archivo de las imágenes
-eda.analyzeTypeFiles()
-print("Número de imágenes por tipo de archivo:", eda.image_types)
+# #Obtenemos el tipo de archivo de las imágenes
+# eda.analyzeTypeFiles()
+# print("Número de imágenes por tipo de archivo:", eda.image_types)
 
-#Obtenemos el tamaño de las imágenes
-eda.analyzeImageSizes()
-print("Número de imágenes por tamaño:", eda.image_sizes)
+# #Obtenemos el tamaño de las imágenes
+# eda.analyzeImageSizes()
+# print("Número de imágenes por tamaño:", eda.image_sizes)
 
-#Obtenemos la relación de aspecto de las imágenes
-eda.analyzeAspectRatio()
-print("Número de imágenes por relación de aspecto:", eda.aspect_ratios)
+# #Obtenemos la relación de aspecto de las imágenes
+# eda.analyzeAspectRatio()
+# print("Número de imágenes por relación de aspecto:", eda.aspect_ratios)
 
-#Obtenemos el tamaño relativo de las etiquetas respecto a las imágenes
-eda.analyzeLabelsSize()
-print("Ancho de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(eda.labelSizesWidth), np.median(eda.labelSizesWidth), np.min(eda.labelSizesWidth), np.max(eda.labelSizesWidth)))
-print("Alto de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(eda.labelSizesHeight), np.median(eda.labelSizesHeight), np.min(eda.labelSizesHeight), np.max(eda.labelSizesHeight)))
+# #Obtenemos el tamaño relativo de las etiquetas respecto a las imágenes
+# eda.analyzeLabelsSize()
+# print("Ancho de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(eda.labelSizesWidth), np.median(eda.labelSizesWidth), np.min(eda.labelSizesWidth), np.max(eda.labelSizesWidth)))
+# print("Alto de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(eda.labelSizesHeight), np.median(eda.labelSizesHeight), np.min(eda.labelSizesHeight), np.max(eda.labelSizesHeight)))
+
+#Obtenemos la distribución de las etiquetas especialmente (Verticalmente y horizontalmente)
+eda.analyzePositionLabels()
+print("Posición horizontal \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsX), np.median(eda.labelPositionsX), np.min(eda.labelPositionsX), np.max(eda.labelPositionsX)))
+print("Posición vertical \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsY), np.median(eda.labelPositionsY), np.min(eda.labelPositionsY), np.max(eda.labelPositionsY)))
+print("Número de etiquetas por cuadrante horizontal:", eda.labelCuadrantesX)
+print("Número de etiquetas por cuadrante vertical:", eda.labelCuadrantesY)
+
