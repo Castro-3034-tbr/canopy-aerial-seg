@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import pathlib
 from fractions import Fraction
+import matplotlib.pyplot as plt
 
 class EDA:
     """Clase que usaremos para analizar el conjunto de datos 
@@ -18,6 +19,8 @@ class EDA:
         Args:
             path (str): Ruta al directorio que contiene las imágenes organizadas en subdirectorios por clase.
         """
+        #Inicializamos una lista para almacenar las imágenes incorrectas
+        self.incorrect_images = []
         
         #Leemos todos los archivos en el directorio
         for files in os.listdir(path):
@@ -31,6 +34,11 @@ class EDA:
                 
                 #Agregamos la imagen a la lista de imágenes
                 self.images.append((file_path, image))
+            else:
+                self.incorrect_images.append(file_path)
+        
+        #Ordenamos las imágenes por nombre de archivo para facilitar la comparación con las etiquetas
+        self.images.sort(key=lambda x: os.path.basename(x[0]))
         
     def loadLabels(self, path):
         """Carga las etiquetas desde el directorio especificado.
@@ -38,6 +46,9 @@ class EDA:
         Args:
             path (str): Ruta al directorio que contiene las imágenes organizadas en subdirectorios por clase.
         """
+        #Inicializamos una lista para almacenar las etiquetas incorrectas
+        self.incorrect_labels = []
+        
         #Leemos todos los archivos en el directorio
         for files in os.listdir(path):
             #Obtenemos la ruta completa del archivo
@@ -49,7 +60,21 @@ class EDA:
                 with open(file_path, 'r') as f:
                     labels = f.readlines()
                 #Agregamos la etiqueta a la lista de etiquetas
-                self.labels.append((file_path, labels))
+                labelsComprobadas = []
+                #Verificamos que el formato de las etiquetas sea correcto (puedes ajustar esto según tus necesidades)
+                for label in labels:
+                    text = label.strip().split()
+                    # Verificar que cumpla con el formato esperado: clase (entero), x_center (float), y_center (float), width (float), height (float)
+                    if len(text) < 5 and float(text[0]) < 0 and not all(0 <= float(coord) <= 1 for coord in text[1:5]):  
+                        self.incorrect_labels.append((file_path, label))
+                    else:
+                        labelsComprobadas.append(label)
+                self.labels.append((file_path, labelsComprobadas))
+            else:
+                self.incorrect_labels.append(file_path)
+        
+        #Ordenamos las etiquetas por nombre de archivo para facilitar la comparación con las imágenes
+        self.labels.sort(key=lambda x: os.path.basename(x[0]))
     
     def analyzeTypeFiles(self):
         """Realizacion de un analisis del tipo de archivo de las imagenes
@@ -231,5 +256,15 @@ eda.loadLabels(pathLabels)
 # print("Número de etiquetas por cuadrante vertical:", eda.labelCuadrantesY)
 
 #Obtenemos el número de etiquetas por imagen
-eda.analyzeNumLabelsPerImage()
-print("Número de etiquetas por imagen \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.numLabelsPerImage), np.median(eda.numLabelsPerImage), np.min(eda.numLabelsPerImage), np.max(eda.numLabelsPerImage)))
+# eda.analyzeNumLabelsPerImage()
+# print("Número de etiquetas por imagen \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.numLabelsPerImage), np.median(eda.numLabelsPerImage), np.min(eda.numLabelsPerImage), np.max(eda.numLabelsPerImage)))
+
+#Obtenemos las imágenes que no cuentan con el formato correcto
+print("Número de imágenes incorrectas:", len(eda.incorrect_images))
+for image_path in eda.incorrect_images:
+    print(f"Imagen incorrecta: {image_path}")
+
+#Obtenemos las etiquetas que no cuentan con el formato correcto
+print("Número de etiquetas incorrectas:", len(eda.incorrect_labels))
+for label_path in eda.incorrect_labels:
+    print(f"Etiqueta incorrecta en {label_path}")
