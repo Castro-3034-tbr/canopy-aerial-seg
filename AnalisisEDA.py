@@ -2,6 +2,7 @@ import os
 import numpy as np
 import cv2
 import pathlib
+from fractions import Fraction
 
 class EDA:
     """Clase que usaremos para analizar el conjunto de datos 
@@ -84,6 +85,28 @@ class EDA:
                 self.image_sizes[size] += 1
             else:
                 self.image_sizes[size] = 1
+    
+    def analyzeAspectRatio(self):
+        """Realizacion de un analisis de la relacion de aspecto de las imagenes
+        """
+        
+        self.aspect_ratios = {}
+        
+        #Analizamos la relacion de aspecto de cada imagen
+        for _, image in self.images:
+            #Obtenemos el tamaño de la imagen (ancho x alto)
+            width, height = image.shape[1], image.shape[0]
+            
+            # Calculamos la relacion de aspecto como fracción simplificada (ej. 16/9)
+            frac = Fraction(width, height)
+            aspect_ratio = f"{frac.numerator}/{frac.denominator}"
+            
+            #Contamos el número de imágenes por relación de aspecto
+            if aspect_ratio in self.aspect_ratios:
+                self.aspect_ratios[aspect_ratio] += 1
+            else:
+                self.aspect_ratios[aspect_ratio] = 1
+                
 
 
 
@@ -112,4 +135,8 @@ print("Número de imágenes por tipo de archivo:", eda.image_types)
 #Obtenemos el tamaño de las imágenes
 eda.analyzeImageSizes()
 print("Número de imágenes por tamaño:", eda.image_sizes)
+
+#Obtenemos la relación de aspecto de las imágenes
+eda.analyzeAspectRatio()
+print("Número de imágenes por relación de aspecto:", eda.aspect_ratios)
 
