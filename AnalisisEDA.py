@@ -51,5 +51,65 @@ class EDA:
                 #Agregamos la etiqueta a la lista de etiquetas
                 self.labels.append((file_path, label))
     
+    def analyzeTypeFiles(self):
+        """Realizacion de un analisis del tipo de archivo de las imagenes
+        """
+        
+        self.image_types = {}
+        
+        #Analizamos el tipo de archivo de cada imagen
+        for file_path, _ in self.images:
+            #Obtenemos la extensión del archivo
+            ext = os.path.splitext(file_path)[1].lower()
+            
+            #Contamos el número de imágenes por tipo de archivo
+            if ext in self.image_types:
+                self.image_types[ext] += 1
+            else:
+                self.image_types[ext] = 1
+    
+    def analyzeImageSizes(self):
+        """Realizacion de un analisis del tamaño de las imagenes
+        """
+        
+        self.image_sizes = {}
+        
+        #Analizamos el tamaño de cada imagen
+        for _, image in self.images:
+            #Obtenemos el tamaño de la imagen (ancho x alto)
+            size = (image.shape[1], image.shape[0])  # (ancho, alto)
+            
+            #Contamos el número de imágenes por tamaño
+            if size in self.image_sizes:
+                self.image_sizes[size] += 1
+            else:
+                self.image_sizes[size] = 1
 
+
+
+#Definicion de path
+BASE_DIR = pathlib.Path(__file__).parent
+pathImages = os.path.join(BASE_DIR, 'dataPruebas/images')
+pathLabels = os.path.join(BASE_DIR, 'dataPruebas/labels')
+
+print("Path de las imágenes:", pathImages)
+print("Path de las etiquetas:", pathLabels)
+
+#Creación de la instancia de la clase EDA
+eda = EDA()
+
+#Carga de las imágenes y etiquetas
+eda.loadImages(pathImages)
+eda.loadLabels(pathLabels)
+
+print("Número de imágenes cargadas:", len(eda.images))
+print("Número de etiquetas cargadas:", len(eda.labels))
+
+#Obtenemos el tipo de archivo de las imágenes
+eda.analyzeTypeFiles()
+print("Número de imágenes por tipo de archivo:", eda.image_types)
+
+#Obtenemos el tamaño de las imágenes
+eda.analyzeImageSizes()
+print("Número de imágenes por tamaño:", eda.image_sizes)
 
