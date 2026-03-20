@@ -176,7 +176,15 @@ class EDA:
                 else:
                     self.labelCuadrantesY["Abajo"] += 1
     
-
+    def analyzeNumLabelsPerImage(self):
+        """Realizacion de un analisis del numero de etiquetas por imagen
+        """
+        
+        self.numLabelsPerImage = []
+        
+        for label_path, labels in self.labels:
+            num_labels = len(labels)
+            self.numLabelsPerImage.append(num_labels)
 
 
 
@@ -216,9 +224,12 @@ eda.loadLabels(pathLabels)
 # print("Alto de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(eda.labelSizesHeight), np.median(eda.labelSizesHeight), np.min(eda.labelSizesHeight), np.max(eda.labelSizesHeight)))
 
 #Obtenemos la distribución de las etiquetas especialmente (Verticalmente y horizontalmente)
-eda.analyzePositionLabels()
-print("Posición horizontal \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsX), np.median(eda.labelPositionsX), np.min(eda.labelPositionsX), np.max(eda.labelPositionsX)))
-print("Posición vertical \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsY), np.median(eda.labelPositionsY), np.min(eda.labelPositionsY), np.max(eda.labelPositionsY)))
-print("Número de etiquetas por cuadrante horizontal:", eda.labelCuadrantesX)
-print("Número de etiquetas por cuadrante vertical:", eda.labelCuadrantesY)
+# eda.analyzePositionLabels()
+# print("Posición horizontal \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsX), np.median(eda.labelPositionsX), np.min(eda.labelPositionsX), np.max(eda.labelPositionsX)))
+# print("Posición vertical \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsY), np.median(eda.labelPositionsY), np.min(eda.labelPositionsY), np.max(eda.labelPositionsY)))
+# print("Número de etiquetas por cuadrante horizontal:", eda.labelCuadrantesX)
+# print("Número de etiquetas por cuadrante vertical:", eda.labelCuadrantesY)
 
+#Obtenemos el número de etiquetas por imagen
+eda.analyzeNumLabelsPerImage()
+print("Número de etiquetas por imagen \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.numLabelsPerImage), np.median(eda.numLabelsPerImage), np.min(eda.numLabelsPerImage), np.max(eda.numLabelsPerImage)))
