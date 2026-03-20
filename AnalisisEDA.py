@@ -47,10 +47,9 @@ class EDA:
             if os.path.isfile(file_path) and file_path.lower().endswith('.txt'):
                 #Leemos el contenido del archivo de texto
                 with open(file_path, 'r') as f:
-                    label = f.read().strip()
-                
+                    labels = f.readlines()
                 #Agregamos la etiqueta a la lista de etiquetas
-                self.labels.append((file_path, label))
+                self.labels.append((file_path, labels))
     
     def analyzeTypeFiles(self):
         """Realizacion de un analisis del tipo de archivo de las imagenes
@@ -106,7 +105,29 @@ class EDA:
                 self.aspect_ratios[aspect_ratio] += 1
             else:
                 self.aspect_ratios[aspect_ratio] = 1
+    
+    def analyzeLabelsSize(self):
+        """Realizacion de un analisis del tamaño relativo de las etiquetas respecto a las imagenes
+        """
+        
+        self.labelSizesWidth = []
+        self.labelSizesHeight = []
+        
+        #Analizamos el tamaño relativo de cada etiqueta respecto a su imagen correspondiente
+        for label_path, labels in self.labels:
+            #Analizamos cada etiqueta en el archivo de etiquetas
+            for label in labels:
+                text = label.strip().split()
+                if len(text) < 5:  # Verificar que la etiqueta tenga al menos 6 elementos (clase + 4 coordenadas)
+                    continue  # Saltar etiquetas mal formateadas
                 
+                #Obtenemos el tamaño de la imagen correspondiente a la etiqueta
+                width = float(text[3])*100 
+                height = float(text[4])*100
+                
+                #Agregamos el tamaño relativo de la etiqueta respecto a la imagen a las listas correspondientes
+                self.labelSizesWidth.append(width)
+                self.labelSizesHeight.append(height)
 
 
 
@@ -140,3 +161,7 @@ print("Número de imágenes por tamaño:", eda.image_sizes)
 eda.analyzeAspectRatio()
 print("Número de imágenes por relación de aspecto:", eda.aspect_ratios)
 
+#Obtenemos el tamaño relativo de las etiquetas respecto a las imágenes
+eda.analyzeLabelsSize()
+print("Ancho de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(eda.labelSizesWidth), np.median(eda.labelSizesWidth), np.min(eda.labelSizesWidth), np.max(eda.labelSizesWidth)))
+print("Alto de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(eda.labelSizesHeight), np.median(eda.labelSizesHeight), np.min(eda.labelSizesHeight), np.max(eda.labelSizesHeight)))
