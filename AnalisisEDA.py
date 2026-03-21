@@ -22,12 +22,12 @@ class EDA:
         self.incorrect_images = []
         self.incorrect_labels = []
         
-        self.image_types = {}
-        self.image_sizes = {}
-        self.aspect_ratios = {}
-        self.labelSizesWidth = []
-        self.labelSizesHeight = []
+        self.imageTypes = {}
+        self.imageSizes = {}
+        self.imagesAspectRatios = {}
+        self.labelSizes = []
         self.labelsCenters = []
+        self.labelAscpectRatios = {}
         self.labelPositionsX = []
         self.labelPositionsY = []
         self.labelCuadrantesX = {"Izquierda": 0, "Centro": 0, "Derecha": 0}
@@ -108,10 +108,10 @@ class EDA:
             ext = os.path.splitext(file_path)[1].lower()
 
             # Contamos el número de imágenes por tipo de archivo
-            if ext in self.image_types:
-                self.image_types[ext] += 1
+            if ext in self.imageTypes:
+                self.imageTypes[ext] += 1
             else:
-                self.image_types[ext] = 1
+                self.imageTypes[ext] = 1
 
     def analyzeImageSizes(self):
         """Realizacion de un analisis del tamaño de las imagenes"""
@@ -122,10 +122,10 @@ class EDA:
             size = (image.shape[1], image.shape[0])  # (ancho, alto)
 
             # Contamos el número de imágenes por tamaño
-            if size in self.image_sizes:
-                self.image_sizes[size] += 1
+            if size in self.imageSizes:
+                self.imageSizes[size] += 1
             else:
-                self.image_sizes[size] = 1
+                self.imageSizes[size] = 1
 
     def analyzeAspectRatio(self):
         """Realizacion de un analisis de la relacion de aspecto de las imagenes"""
@@ -140,10 +140,10 @@ class EDA:
             aspect_ratio = f"{frac.numerator}/{frac.denominator}"
 
             # Contamos el número de imágenes por relación de aspecto
-            if aspect_ratio in self.aspect_ratios:
-                self.aspect_ratios[aspect_ratio] += 1
+            if aspect_ratio in self.imagesAspectRatios:
+                self.imagesAspectRatios[aspect_ratio] += 1
             else:
-                self.aspect_ratios[aspect_ratio] = 1
+                self.imagesAspectRatios[aspect_ratio] = 1
 
     def analyzeLabelsSize(self):
         """Realizacion de un analisis del tamaño relativo de las etiquetas respecto a las imagenes"""
@@ -163,8 +163,7 @@ class EDA:
                 height = float(text[4]) * 100
 
                 # Agregamos el tamaño relativo de la etiqueta respecto a la imagen a las listas correspondientes
-                self.labelSizesWidth.append(width)
-                self.labelSizesHeight.append(height)
+                self.labelSizes.append((width, height))
 
     def analyzePositionLabels(self):
         """Realizacion de un analisis de la distribucion de las etiquetas especialmente (Verticalmente y horizontalmente)"""
@@ -234,6 +233,25 @@ class EDA:
         if pathOutput:
             plt.savefig(pathOutput)
 
+    def analyzeLabelsAspectRatio(self):
+        """Realizacion de un analisis de la relacion de aspecto de las etiquetas"""
+
+        #Validamos si ya se han analizado los tamaños de las etiquetas, si no es así, los analizamos
+        if not self.labelSizes:
+            self.analyzeLabelsSize()
+
+        # Analizamos la relacion de aspecto de cada etiqueta
+        for width, height in self.labelSizes:
+            # Calculamos la relacion de aspecto como fracción simplificada (ej. 16/9)
+            frac = Fraction(int(width), int(height))
+            aspect_ratio = f"{frac.numerator}/{frac.denominator}"
+
+            # Contamos el número de etiquetas por relación de aspecto
+            if aspect_ratio in self.labelAscpectRatios:
+                self.labelAscpectRatios[aspect_ratio] += 1
+            else:
+                self.labelAscpectRatios[aspect_ratio] = 1
+
 
 
 # Definicion de path
@@ -252,45 +270,51 @@ eda = EDA()
 eda.loadImages(pathImages)
 eda.loadLabels(pathLabels)
 
-print("Número de imágenes cargadas:", len(eda.images))
-print("Número de etiquetas cargadas:", len(eda.labels))
+# print("Número de imágenes cargadas:", len(eda.images))
+# print("Número de etiquetas cargadas:", len(eda.labels))
 
-#Obtenemos el tipo de archivo de las imágenes
-eda.analyzeTypeFiles()
-print("Número de imágenes por tipo de archivo:", eda.image_types)
+# #Obtenemos el tipo de archivo de las imágenes
+# eda.analyzeTypeFiles()
+# print("Número de imágenes por tipo de archivo:", eda.imageTypes)
 
-#Obtenemos el tamaño de las imágenes
-eda.analyzeImageSizes()
-print("Número de imágenes por tamaño:", eda.image_sizes)
+# #Obtenemos el tamaño de las imágenes
+# eda.analyzeImageSizes()
+# print("Número de imágenes por tamaño:", eda.imageSizes)
 
-#Obtenemos la relación de aspecto de las imágenes
-eda.analyzeAspectRatio()
-print("Número de imágenes por relación de aspecto:", eda.aspect_ratios)
+# #Obtenemos la relación de aspecto de las imágenes
+# eda.analyzeAspectRatio()
+# print("Número de imágenes por relación de aspecto:", eda.imagesAspectRatios)
 
-#Obtenemos el tamaño relativo de las etiquetas respecto a las imágenes
-eda.analyzeLabelsSize()
-print("Ancho de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(eda.labelSizesWidth), np.median(eda.labelSizesWidth), np.min(eda.labelSizesWidth), np.max(eda.labelSizesWidth)))
-print("Alto de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(eda.labelSizesHeight), np.median(eda.labelSizesHeight), np.min(eda.labelSizesHeight), np.max(eda.labelSizesHeight)))
+# #Obtenemos el tamaño relativo de las etiquetas respecto a las imágenes
+# eda.analyzeLabelsSize()
+# labelSizeWidths = [eda.labelSizes[i][0] for i in range(len(eda.labelSizes))]
+# labelSizeHeights = [eda.labelSizes[i][1] for i in range(len(eda.labelSizes))]
+# print("Ancho de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(labelSizeWidths), np.median(labelSizeWidths), np.min(labelSizeWidths), np.max(labelSizeWidths)))
+# print("Alto de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(labelSizeHeights), np.median(labelSizeHeights), np.min(labelSizeHeights), np.max(labelSizeHeights)))
 
-# Obtenemos la distribución de las etiquetas especialmente (Verticalmente y horizontalmente)
-eda.analyzePositionLabels()
-print("Posición horizontal \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsX), np.median(eda.labelPositionsX), np.min(eda.labelPositionsX), np.max(eda.labelPositionsX)))
-print("Posición vertical \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsY), np.median(eda.labelPositionsY), np.min(eda.labelPositionsY), np.max(eda.labelPositionsY)))
-print("Número de etiquetas por cuadrante horizontal:", eda.labelCuadrantesX)
-print("Número de etiquetas por cuadrante vertical:", eda.labelCuadrantesY)
+# # Obtenemos la distribución de las etiquetas especialmente (Verticalmente y horizontalmente)
+# eda.analyzePositionLabels()
+# print("Posición horizontal \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsX), np.median(eda.labelPositionsX), np.min(eda.labelPositionsX), np.max(eda.labelPositionsX)))
+# print("Posición vertical \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsY), np.median(eda.labelPositionsY), np.min(eda.labelPositionsY), np.max(eda.labelPositionsY)))
+# print("Número de etiquetas por cuadrante horizontal:", eda.labelCuadrantesX)
+# print("Número de etiquetas por cuadrante vertical:", eda.labelCuadrantesY)
 
-eda.generateDensityCenterPlot(pathOutput=os.path.join(OUTPUT_DIR, "density_center_plot.png"))
+# eda.generateDensityCenterPlot(pathOutput=os.path.join(OUTPUT_DIR, "density_center_plot.png"))
 
-# Obtenemos el número de etiquetas por imagen
-eda.analyzeNumLabelsPerImage()
-print("Número de etiquetas por imagen \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.numLabelsPerImage), np.median(eda.numLabelsPerImage), np.min(eda.numLabelsPerImage), np.max(eda.numLabelsPerImage)))
+# # Obtenemos el número de etiquetas por imagen
+# eda.analyzeNumLabelsPerImage()
+# print("Número de etiquetas por imagen \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.numLabelsPerImage), np.median(eda.numLabelsPerImage), np.min(eda.numLabelsPerImage), np.max(eda.numLabelsPerImage)))
 
-# Obtenemos las imágenes que no cuentan con el formato correcto
-print("Número de imágenes incorrectas:", len(eda.incorrect_images))
-for image_path in eda.incorrect_images:
-    print(f"Imagen incorrecta: {image_path}")
+# # Obtenemos las imágenes que no cuentan con el formato correcto
+# print("Número de imágenes incorrectas:", len(eda.incorrect_images))
+# for image_path in eda.incorrect_images:
+#     print(f"Imagen incorrecta: {image_path}")
 
-#Obtenemos las etiquetas que no cuentan con el formato correcto
-print("Número de etiquetas incorrectas:", len(eda.incorrect_labels))
-for label_path in eda.incorrect_labels:
-    print(f"Etiqueta incorrecta en {label_path}")
+# #Obtenemos las etiquetas que no cuentan con el formato correcto
+# print("Número de etiquetas incorrectas:", len(eda.incorrect_labels))
+# for label_path in eda.incorrect_labels:
+#     print(f"Etiqueta incorrecta en {label_path}")
+
+#Obtenemos el aspect ratio de las etiquetas
+eda.analyzeLabelsAspectRatio()
+print("Número de etiquetas por relación de aspecto:", eda.labelAscpectRatios)
