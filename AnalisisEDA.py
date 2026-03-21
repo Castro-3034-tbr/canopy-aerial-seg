@@ -34,6 +34,7 @@ class EDA:
         self.labelCuadrantesY = {"Arriba": 0, "Centro": 0, "Abajo": 0}
         self.numLabelsPerImage = []
         self.labelsUIO = []
+        self.imagesBrightness = []
 
     def loadImages(self, path):
         """Carga las imágenes y etiquetas desde el directorio especificado.
@@ -315,6 +316,20 @@ class EDA:
                         #Aquí podrías almacenar o analizar el IoU según tus necesidades
                         self.labelsUIO.append(iou)
 
+    def analyzeBrightness(self):
+        """Realizacion de un analisis del brillo de las imagenes"""
+        if not self.images:
+            return # No hay imágenes para analizar
+
+        # Analizamos el brillo de cada imagen
+        for _, image in self.images:
+            # Convertimos la imagen a escala de grises
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+            # Calculamos el brillo promedio de la imagen
+            brightness = np.mean(gray)
+            self.imagesBrightness.append(brightness)
+
 
 
 # Definicion de path
@@ -383,6 +398,10 @@ eda.loadLabels(pathLabels)
 # print("Número de etiquetas por relación de aspecto:", eda.labelAscpectRatios)
 
 #Obtenemos el solapamiento entre etiquetas (IoU)
-eda.analyzeLabelsSolapamiento()
-print("Número de IoU calculados entre etiquetas:", len(eda.labelsUIO))
-print("IoU entre etiquetas \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelsUIO), np.median(eda.labelsUIO), np.min(eda.labelsUIO), np.max(eda.labelsUIO)))
+# eda.analyzeLabelsSolapamiento()
+# print("Número de IoU calculados entre etiquetas:", len(eda.labelsUIO))
+# print("IoU entre etiquetas \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelsUIO), np.median(eda.labelsUIO), np.min(eda.labelsUIO), np.max(eda.labelsUIO)))
+
+#Obtenemos el brillo de las imágenes
+eda.analyzeBrightness()
+print("Brillo de las imágenes \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.imagesBrightness), np.median(eda.imagesBrightness), np.min(eda.imagesBrightness), np.max(eda.imagesBrightness)))
