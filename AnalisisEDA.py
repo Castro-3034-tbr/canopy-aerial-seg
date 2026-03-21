@@ -33,6 +33,7 @@ class EDA:
         self.labelCuadrantesX = {"Izquierda": 0, "Centro": 0, "Derecha": 0}
         self.labelCuadrantesY = {"Arriba": 0, "Centro": 0, "Abajo": 0}
         self.numLabelsPerImage = []
+        self.labelsUIO = []
 
     def loadImages(self, path):
         """Carga las imágenes y etiquetas desde el directorio especificado.
@@ -252,6 +253,68 @@ class EDA:
             else:
                 self.labelAscpectRatios[aspect_ratio] = 1
 
+    def calculateIoU(self, bbox1, bbox2):
+        """Función para calcular el Intersection over Union (IoU) entre dos bounding boxes"""
+        x_min1, y_min1, x_max1, y_max1 , width1, height1 = bbox1
+        x_min2, y_min2, x_max2, y_max2 , width2, height2 = bbox2
+
+        # Calculamos las coordenadas del área de intersección
+        x_min_inter = max(x_min1, x_min2)
+        y_min_inter = max(y_min1, y_min2)
+        x_max_inter = min(x_max1, x_max2)
+        y_max_inter = min(y_max1, y_max2)
+
+        # Calculamos el área de intersección
+        inter_width = max(0, x_max_inter - x_min_inter)
+        inter_height = max(0, y_max_inter - y_min_inter)
+        area_inter = inter_width * inter_height
+
+        # Calculamos el área de cada bounding box
+        area_bbox1 = width1 * height1
+        area_bbox2 = width2 * height2
+
+        # Calculamos el área de unión
+        area_union = area_bbox1 + area_bbox2 - area_inter
+
+        # Calculamos el IoU
+        iou = area_inter / area_union if area_union > 0 else 0
+
+        return iou
+
+    def analyzeLabelsSolapamiento(self):
+        """Realizacion de un analisis del solapamiento entre etiquetas (IoU)"""
+
+        if not self.labels:
+            return # No hay etiquetas para analizar
+
+        #Obtemos las etiquetas para  cada imagen
+        for _, labels in self.labels:
+            #Analizamos el solapamiento cuando hay más de una etiqueta en la imagen
+            if len(labels) > 1:
+                #Obtenemos las coordenadas de cada etiqueta
+                bboxes = []
+                for label in labels:
+                    text = label.strip().split()
+
+                    x_center = float(text[1])
+                    y_center = float(text[2])
+                    width = float(text[3])
+                    height = float(text[4])
+                    x_min = x_center - width / 2
+                    y_min = y_center - height / 2
+                    x_max = x_center + width / 2
+                    y_max = y_center + height / 2
+                    bboxes.append((x_min, y_min, x_max, y_max, width, height))
+
+                #Calculamos el IoU entre cada par de etiquetas
+                for i in range(len(bboxes)):
+                    for j in range(i + 1, len(bboxes)):
+                        bbox1 = bboxes[i]
+                        bbox2 = bboxes[j]
+                        iou = self.calculateIoU(bbox1, bbox2)
+                        #Aquí podrías almacenar o analizar el IoU según tus necesidades
+                        self.labelsUIO.append(iou)
+
 
 
 # Definicion de path
@@ -316,5 +379,10 @@ eda.loadLabels(pathLabels)
 #     print(f"Etiqueta incorrecta en {label_path}")
 
 #Obtenemos el aspect ratio de las etiquetas
-eda.analyzeLabelsAspectRatio()
-print("Número de etiquetas por relación de aspecto:", eda.labelAscpectRatios)
+# eda.analyzeLabelsAspectRatio()
+# print("Número de etiquetas por relación de aspecto:", eda.labelAscpectRatios)
+
+#Obtenemos el solapamiento entre etiquetas (IoU)
+eda.analyzeLabelsSolapamiento()
+print("Número de IoU calculados entre etiquetas:", len(eda.labelsUIO))
+print("IoU entre etiquetas \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelsUIO), np.median(eda.labelsUIO), np.min(eda.labelsUIO), np.max(eda.labelsUIO)))
