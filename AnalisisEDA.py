@@ -345,6 +345,37 @@ class EDA:
             contrast = cv2.Laplacian(gray, cv2.CV_64F).var()
             self.imagesContrast.append(contrast)
 
+    def generateContinuosPlots(self, dato, output_dir):
+        """Genera y guarda un gráfico de histograma con curva normal superpuesta."""
+        # Creamos el directorio de salida si no existe
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Conversion del dato a array de numpy para facilitar el manejo
+        data = np.array(dato)
+
+        # Histograma + curva normal para evaluar similitud con distribución normal
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        ax.hist(data, bins=20, density=True, alpha=0.7, color="#4c72b0", edgecolor="black", label="Datos")
+
+        mean = np.mean(data)
+        std = np.std(data)
+        if std > 0:
+            x_vals = np.linspace(np.min(data), np.max(data), 200)
+            normal_pdf = (1 / (std * np.sqrt(2 * np.pi))) * np.exp(
+                -0.5 * ((x_vals - mean) / std) ** 2
+            )
+            ax.plot(x_vals, normal_pdf, "r-", linewidth=2, label="Normal teórica")
+
+        ax.set_xlabel("Valor")
+        ax.set_ylabel("Densidad")
+        ax.set_title("Distribución vs Curva Normal")
+        ax.legend()
+
+        fig.tight_layout()
+        fig.savefig(os.path.join(output_dir, "brightness_contrast_normality.png"))
+        plt.close(fig)
+
 
 # Definicion de path
 BASE_DIR = pathlib.Path(__file__).parent
@@ -407,11 +438,11 @@ print("Número de etiquetas cargadas:", len(eda.labels))
 # for label_path in eda.incorrect_labels:
 #     print(f"Etiqueta incorrecta en {label_path}")
 
-#Obtenemos el aspect ratio de las etiquetas
+# # Obtenemos el aspect ratio de las etiquetas
 # eda.analyzeLabelsAspectRatio()
 # print("Número de etiquetas por relación de aspecto:", eda.labelAscpectRatios)
 
-#Obtenemos el solapamiento entre etiquetas (IoU)
+# # Obtenemos el solapamiento entre etiquetas (IoU)
 # eda.analyzeLabelsSolapamiento()
 # print("Número de IoU calculados entre etiquetas:", len(eda.labelsUIO))
 # print("IoU entre etiquetas \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelsUIO), np.median(eda.labelsUIO), np.min(eda.labelsUIO), np.max(eda.labelsUIO)))
