@@ -1,0 +1,42 @@
+{
+    "pathData": "./dataPruebas/data.yaml",
+    "pathResult": "./results",
+    "pathLog": "./logs",
+
+    "task":{
+        "train": true,
+        "val": true,
+        "test": true
+    },
+
+    "model":{
+        "name": "YOLOv8m",
+        "path": "./models/yolov8m.pt"
+    },
+
+    "training":{
+        "augmentation": true,
+        "epochs": 2,
+        "batch_size": 2,
+        "img_size": 640,
+        "device": "cpu",
+        "seed": 42,
+        "patience": 10,
+        "workers": 4,
+        "mosaic": true
+    },
+
+    "validation":{
+        "batch_size": 2,
+        "img_size": 640,
+        "device": "cpu",
+        "workers": 4
+    },
+
+    "test":{
+        "batch_size": 2,
+        "img_size": 640,
+        "device": "cpu",
+        "workers": 4
+    }
+}
