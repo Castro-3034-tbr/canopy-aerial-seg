@@ -1,2 +1,6 @@
-dataPruebas/
+dataPruebas/**
+!dataPruebas/.gitkeep
 Variables_buscar.md
+.trunk
+output/**
+!output/.gitkeep
