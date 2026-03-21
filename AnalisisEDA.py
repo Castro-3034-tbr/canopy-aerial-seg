@@ -35,6 +35,7 @@ class EDA:
         self.numLabelsPerImage = []
         self.labelsUIO = []
         self.imagesBrightness = []
+        self.imagesContrast = []
 
     def loadImages(self, path):
         """Carga las imágenes y etiquetas desde el directorio especificado.
@@ -330,6 +331,19 @@ class EDA:
             brightness = np.mean(gray)
             self.imagesBrightness.append(brightness)
 
+    def analyzeContrast(self):
+        """Realizacion de un analisis del contraste de las imagenes"""
+        if not self.images:
+            return # No hay imágenes para analizar
+
+        # Analizamos el contraste de cada imagen
+        for _, image in self.images:
+            # Convertimos la imagen a escala de grises
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+            # Calculamos el contraste usando la varianza de Laplacian
+            contrast = cv2.Laplacian(gray, cv2.CV_64F).var()
+            self.imagesContrast.append(contrast)
 
 
 # Definicion de path
@@ -348,8 +362,8 @@ eda = EDA()
 eda.loadImages(pathImages)
 eda.loadLabels(pathLabels)
 
-# print("Número de imágenes cargadas:", len(eda.images))
-# print("Número de etiquetas cargadas:", len(eda.labels))
+print("Número de imágenes cargadas:", len(eda.images))
+print("Número de etiquetas cargadas:", len(eda.labels))
 
 # #Obtenemos el tipo de archivo de las imágenes
 # eda.analyzeTypeFiles()
@@ -402,6 +416,6 @@ eda.loadLabels(pathLabels)
 # print("Número de IoU calculados entre etiquetas:", len(eda.labelsUIO))
 # print("IoU entre etiquetas \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelsUIO), np.median(eda.labelsUIO), np.min(eda.labelsUIO), np.max(eda.labelsUIO)))
 
-#Obtenemos el brillo de las imágenes
+# Obtenemos el brillo de las imágenes
 eda.analyzeBrightness()
 print("Brillo de las imágenes \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.imagesBrightness), np.median(eda.imagesBrightness), np.min(eda.imagesBrightness), np.max(eda.imagesBrightness)))
