@@ -36,6 +36,7 @@ class EDA:
         self.labelsUIO = []
         self.imagesBrightness = []
         self.imagesContrast = []
+        self.imagesBlur = []
 
     def loadImages(self, path):
         """Carga las imágenes y etiquetas desde el directorio especificado.
@@ -332,7 +333,12 @@ class EDA:
             self.imagesBrightness.append(brightness)
 
     def analyzeContrast(self):
-        """Realizacion de un analisis del contraste de las imagenes"""
+        """Realizacion de un analisis del contraste de las imagenes
+            Notas de rango
+            <20 = Bajo contraste
+            20-50 = Contraste medio
+            >50 = Alto contraste
+        """
         if not self.images:
             return # No hay imágenes para analizar
 
@@ -342,10 +348,10 @@ class EDA:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
             # Calculamos el contraste usando la varianza de Laplacian
-            contrast = cv2.Laplacian(gray, cv2.CV_64F).var()
+            contrast = float(np.std(gray))
             self.imagesContrast.append(contrast)
 
-    def generateContinuosPlots(self, dato, output_dir):
+    def generateContinuosPlots(self, dato, output_dir, filename):
         """Genera y guarda un gráfico de histograma con curva normal superpuesta."""
         # Creamos el directorio de salida si no existe
         os.makedirs(output_dir, exist_ok=True)
@@ -373,8 +379,22 @@ class EDA:
         ax.legend()
 
         fig.tight_layout()
-        fig.savefig(os.path.join(output_dir, "brightness_contrast_normality.png"))
+        fig.savefig(os.path.join(output_dir, f"{filename}.png"))
         plt.close(fig)
+
+    def analyzeDesenfoque(self):
+        """Realizacion de un analisis del desenfoque de las imagenes usando la varianza de Laplacian"""
+        if not self.images:
+            return # No hay imágenes para analizar
+
+        # Analizamos el desenfoque de cada imagen
+        for _, image in self.images:
+            # Convertimos la imagen a escala de grises
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+            # Calculamos la varianza de Laplacian para evaluar el desenfoque
+            blur_metric = cv2.Laplacian(gray, cv2.CV_64F).var()
+            self.imagesBlur.append(blur_metric)
 
 
 # Definicion de path
@@ -395,58 +415,3 @@ eda.loadLabels(pathLabels)
 
 print("Número de imágenes cargadas:", len(eda.images))
 print("Número de etiquetas cargadas:", len(eda.labels))
-
-# #Obtenemos el tipo de archivo de las imágenes
-# eda.analyzeTypeFiles()
-# print("Número de imágenes por tipo de archivo:", eda.imageTypes)
-
-# #Obtenemos el tamaño de las imágenes
-# eda.analyzeImageSizes()
-# print("Número de imágenes por tamaño:", eda.imageSizes)
-
-# #Obtenemos la relación de aspecto de las imágenes
-# eda.analyzeAspectRatio()
-# print("Número de imágenes por relación de aspecto:", eda.imagesAspectRatios)
-
-# #Obtenemos el tamaño relativo de las etiquetas respecto a las imágenes
-# eda.analyzeLabelsSize()
-# labelSizeWidths = [eda.labelSizes[i][0] for i in range(len(eda.labelSizes))]
-# labelSizeHeights = [eda.labelSizes[i][1] for i in range(len(eda.labelSizes))]
-# print("Ancho de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(labelSizeWidths), np.median(labelSizeWidths), np.min(labelSizeWidths), np.max(labelSizeWidths)))
-# print("Alto de las etiquetas \n\t Media: {} \n\t Mediana: {} \n\t Mínimo: {} \n\t Máximo: {}".format(np.mean(labelSizeHeights), np.median(labelSizeHeights), np.min(labelSizeHeights), np.max(labelSizeHeights)))
-
-# # Obtenemos la distribución de las etiquetas especialmente (Verticalmente y horizontalmente)
-# eda.analyzePositionLabels()
-# print("Posición horizontal \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsX), np.median(eda.labelPositionsX), np.min(eda.labelPositionsX), np.max(eda.labelPositionsX)))
-# print("Posición vertical \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelPositionsY), np.median(eda.labelPositionsY), np.min(eda.labelPositionsY), np.max(eda.labelPositionsY)))
-# print("Número de etiquetas por cuadrante horizontal:", eda.labelCuadrantesX)
-# print("Número de etiquetas por cuadrante vertical:", eda.labelCuadrantesY)
-
-# eda.generateDensityCenterPlot(pathOutput=os.path.join(OUTPUT_DIR, "density_center_plot.png"))
-
-# # Obtenemos el número de etiquetas por imagen
-# eda.analyzeNumLabelsPerImage()
-# print("Número de etiquetas por imagen \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.numLabelsPerImage), np.median(eda.numLabelsPerImage), np.min(eda.numLabelsPerImage), np.max(eda.numLabelsPerImage)))
-
-# # Obtenemos las imágenes que no cuentan con el formato correcto
-# print("Número de imágenes incorrectas:", len(eda.incorrect_images))
-# for image_path in eda.incorrect_images:
-#     print(f"Imagen incorrecta: {image_path}")
-
-# #Obtenemos las etiquetas que no cuentan con el formato correcto
-# print("Número de etiquetas incorrectas:", len(eda.incorrect_labels))
-# for label_path in eda.incorrect_labels:
-#     print(f"Etiqueta incorrecta en {label_path}")
-
-# # Obtenemos el aspect ratio de las etiquetas
-# eda.analyzeLabelsAspectRatio()
-# print("Número de etiquetas por relación de aspecto:", eda.labelAscpectRatios)
-
-# # Obtenemos el solapamiento entre etiquetas (IoU)
-# eda.analyzeLabelsSolapamiento()
-# print("Número de IoU calculados entre etiquetas:", len(eda.labelsUIO))
-# print("IoU entre etiquetas \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.labelsUIO), np.median(eda.labelsUIO), np.min(eda.labelsUIO), np.max(eda.labelsUIO)))
-
-# Obtenemos el brillo de las imágenes
-eda.analyzeBrightness()
-print("Brillo de las imágenes \n\t Media: {}, \n\t Mediana: {}, \n\t Mínimo: {}, \n\t Máximo: {}".format(np.mean(eda.imagesBrightness), np.median(eda.imagesBrightness), np.min(eda.imagesBrightness), np.max(eda.imagesBrightness)))
