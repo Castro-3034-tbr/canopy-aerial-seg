@@ -396,6 +396,111 @@ class EDA:
             blur_metric = cv2.Laplacian(gray, cv2.CV_64F).var()
             self.imagesBlur.append(blur_metric)
 
+    def saveResults(self, output_dir):
+        """Guarda los resultados del análisis en un archivo de texto."""
+        os.makedirs(output_dir, exist_ok=True)
+        with open(os.path.join(output_dir, "eda_results.txt"), "w") as f:
+            f.write("Resultados del Análisis EDA:\n\n")
+
+            #Imagenes cargadas
+            if len(self.images) > 0:
+                f.write(f"Número total de imágenes: {len(self.images)}\n")
+            else:
+                f.write("No se han cargado imágenes correctamente.\n")
+
+            #Etiquetas cargadas
+            if len(self.labels) > 0:
+                f.write(f"Número total de etiquetas: {len(self.labels)}\n")
+            else:
+                f.write("No se han cargado etiquetas correctamente.\n")
+
+            #Images incorrectas
+            if len(self.incorrect_images) > 0:
+                f.write(f"Número de imágenes con formato incorrecto: {len(self.incorrect_images)}\n")
+                f.write("Imágenes con formato incorrecto:\n")
+                for img in self.incorrect_images:
+                    f.write(f"\t{img}\n")
+            else:
+                f.write("No se han encontrado imágenes con formato incorrecto.\n")
+
+            #Etiquetas incorrectas
+            if len(self.incorrect_labels) > 0:
+                f.write(f"Número de etiquetas con formato incorrecto: {len(self.incorrect_labels)}\n")
+                f.write("Etiquetas con formato incorrecto:\n")
+                for label in self.incorrect_labels:
+                    f.write(f"\t{label}\n")
+            else:
+                f.write("No se han encontrado etiquetas con formato incorrecto.\n")
+
+            #Estadísticas de las imágenes
+            if len(self.imageTypes) > 0:
+                f.write(f"Tipos de archivos de imágenes: {self.imageTypes}\n")
+            else:
+                f.write("No se han cargado imágenes para analizar los tipos de archivo.\n")
+
+            #Tamaños de las imagenes
+            if len(self.imageSizes) > 0:
+                f.write(f"Tamaños de imágenes: {self.imageSizes}\n")
+            else:
+                f.write("No se han obtenido tamaños de imágenes.\n")
+
+            #Relaciones de aspecto de las imagenes
+            if len(self.imagesAspectRatios) > 0:
+                f.write(f"Relaciones de aspecto de imágenes: {self.imagesAspectRatios}\n")
+            else:
+                f.write("No se han obtenido relaciones de aspecto de imágenes.\n")
+
+            #Número de etiquetas por imagen
+            if len(self.numLabelsPerImage) > 0:
+                f.write(f"Número de etiquetas por imagen:\n\t Media: {np.mean(self.numLabelsPerImage):.2f}\n\t Mediana: {np.median(self.numLabelsPerImage)}\n\t Mínimo: {np.min(self.numLabelsPerImage)}\n\t Máximo: {np.max(self.numLabelsPerImage)}\n")
+            else:
+                f.write("No se han obtenido datos sobre el número de etiquetas por imagen.\n")
+
+            #Relaciones de aspecto de las etiquetas
+            if len(self.labelAscpectRatios) > 0:
+                f.write(f"Relaciones de aspecto de etiquetas: {self.labelAscpectRatios}\n")
+            else:
+                f.write("No se han obtenido relaciones de aspecto de etiquetas.\n")
+
+            #Cuadrantes X de las etiquetas
+            if len(self.labelCuadrantesX) > 0:
+                f.write(f"Cuadrantes X de etiquetas: {self.labelCuadrantesX}\n")
+            else:
+                f.write("No se han obtenido datos sobre los cuadrantes X de etiquetas.\n")
+
+            #Cuadrantes Y de las etiquetas
+            if len(self.labelCuadrantesY) > 0:
+                f.write(f"Cuadrantes Y de etiquetas: {self.labelCuadrantesY}\n")
+            else:
+                f.write("No se han obtenido datos sobre los cuadrantes Y de etiquetas.\n")
+
+            #Valores de IoU entre etiquetas
+            if len(self.labelsUIO) > 0:
+                f.write(f"Valores de IoU entre etiquetas:\n\t Media: {np.mean(self.labelsUIO):.2f}\n\t Mediana: {np.median(self.labelsUIO):.2f}\n\t Mínimo: {np.min(self.labelsUIO):.2f}\n\t Máximo: {np.max(self.labelsUIO):.2f}\n")
+            else:
+                f.write("No se han obtenido valores de IoU entre etiquetas.\n")
+
+            #Brillo de las imagenes
+            if len(self.imagesBrightness) > 0:
+                f.write(f"Brillo de imágenes: \n\t Media: {np.mean(self.imagesBrightness):.2f}\n\t Mediana: {np.median(self.imagesBrightness):.2f}\n\t Mínimo: {np.min(self.imagesBrightness):.2f}\n\t Máximo: {np.max(self.imagesBrightness):.2f}\n")
+            else:
+                f.write("No se han obtenido datos sobre el brillo de las imágenes.\n")
+
+            #Contraste de las imagenes
+            if len(self.imagesContrast) > 0:
+                f.write(f"Contraste de imágenes: \n\t Media: {np.mean(self.imagesContrast):.2f}\n\t Mediana: {np.median(self.imagesContrast):.2f}\n\t Mínimo: {np.min(self.imagesContrast):.2f}\n\t Máximo: {np.max(self.imagesContrast):.2f}\n")
+            else:
+                f.write("No se han obtenido datos sobre el contraste de las imágenes.\n")
+
+            #Desenfoque de las imagenes
+            if len(self.imagesBlur) > 0:
+                f.write(f"Desenfoque (varianza de Laplacian) de imágenes: \n\t Media: {np.mean(self.imagesBlur):.2f}\n\t Mediana: {np.median(self.imagesBlur):.2f}\n\t Mínimo: {np.min(self.imagesBlur):.2f}\n\t Máximo: {np.max(self.imagesBlur):.2f}\n")
+            else:
+                f.write("No se han obtenido datos sobre el desenfoque de las imágenes.\n")
+
+        #Cerramos el archivo de resultados
+        f.close()
+
 
 # Definicion de path
 BASE_DIR = pathlib.Path(__file__).parent
