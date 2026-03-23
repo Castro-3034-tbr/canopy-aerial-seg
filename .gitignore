@@ -7,3 +7,4 @@ runs/
 config/__pycache__/
 models/
 utils/__pycache__/
+.trunk/
