@@ -1,0 +1,124 @@
+
+# 
+from fastapi import FastAPI, File, Query, UploadFile
+from fastapi.responses import RedirectResponse
+import logging
+from pathlib import Path
+import uvicorn
+
+
+#Configuracion del logging para la API guardando en la carpeta logs
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_DIR / "api.log"),
+        logging.StreamHandler()
+    ]
+    
+    
+)
+
+#Inicializacion de la aplicación FastAPI
+app = FastAPI(
+    title= "TFM API",
+    description= "API for YOLOv8 Object Detection",
+    version= "1.0.0"
+)
+
+
+#Endpoint raíz que redirige a la documentación automática de FastAPI
+
+@app.post("/stream/start")
+def start_stream(
+    rtspUrl: str = Query(..., description="RTSP URL of the video stream"),
+    saveLog: bool = Query(False),
+    saveImages: bool = Query(False),
+    saveInference: bool = Query(False),
+    confidenceClass: float = 0.60,
+    mqttBroker: str = Query(..., description="MQTT broker IP address"),
+    mqttPort: int = Query(..., description="MQTT broker port"),
+    mqttTopic: str = Query("detecciones", description="MQTT topic for publishing detections")
+):
+    """Inicia el procesamiento de un stream RTSP con las siguientes opciones:
+
+    Args:
+        rtspUrl (str): URL del stream RTSP a procesar
+        saveLog (bool): Indica si se deben guardar los logs de detección en un archivo de texto. Default: False 
+        saveImages (bool): Indica si se deben guardar las imágenes con las detecciones superpuestas. Default: False
+        saveInference (bool): Indica si se deben guardar las inferencias (clases y coordenadas) en un archivo JSON. Default: False 
+        confidenceClass (float): Umbral de confianza para la clase. Default: 0.60 
+        mqttBroker (str): Dirección IP del broker MQTT al que se publicarán las detecciones
+        mqttPort (int): Puerto del broker MQTT al que se publicarán las detecciones
+        mqttTopic (str): Topic MQTT en el que se publicarán las detecciones. Default: "detecciones"
+
+    Returns:
+            dict: Un diccionario con un mensaje de inicio y la configuración utilizada para el stream
+    """
+    
+    #Inicio del stream con la configuración recibida (a implementar en la función real)
+    
+    return {
+        "msg": "Inicio del stream {}" , 
+        "rtspUrl": rtspUrl,
+        "mqtt": {
+            "broker": mqttBroker,
+            "port": mqttPort,
+            "topic": mqttTopic
+        }
+    }
+
+@app.post("/stream/stop")
+def stop_stream():
+    """Detiene el procesamiento del stream RTSP."""
+    
+    #Lógica para detener el stream (a implementar en la función real)
+    
+    
+    return {"msg": "Stream {}"}
+
+@app.post("/predict/image")
+async def predict_image(
+    file: UploadFile = File(...),
+    saveImage: bool = Query(False),
+    saveInference: bool = Query(False),
+    confidenceClass0: float = 0.6,
+):
+    """
+
+    Args:
+        file (UploadFile): Archivo de imagen a procesar
+        saveImage (bool): Indica si se debe guardar la imagen con las detecciones superpuestas. Defaults False.
+        saveInference (bool): Indica si se deben guardar las inferencias (clases y coordenadas) en un archivo JSON. Defaults to False.
+        confidenceClass0 (float): Umbral de confianza para la clase 0. Defaults to 0.6.
+
+    Returns:
+            dict: Un diccionario con las detecciones realizadas en la imagen, incluyendo información de clase, coordenadas y confianza.
+    """
+    
+    # Lógica para procesar la imagen y realizar las predicciones (a implementar en la función real)
+    return {
+        "msg": "Predicciones realizadas en la imagen {}",
+        "saveImage": saveImage,
+        "saveInference": saveInference,
+        "confidenceClass0": confidenceClass0
+    }
+
+@app.get("/health")
+def health():
+    """
+        Endpoint de salud para verificar que la API está funcionando correctamente.
+
+    Returns:
+        dict: Un diccionario con el estado de la API.
+    """
+    return {"msg": "API esta funcionando correctamente"}
+
+@app.get("/")
+async def root(): return RedirectResponse("/docs")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
