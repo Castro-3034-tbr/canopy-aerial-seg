@@ -1,6 +1,7 @@
 import logging
 import threading
 from pathlib import Path
+import json
 
 import uvicorn
 from fastapi import FastAPI, File, Query, UploadFile
@@ -10,6 +11,8 @@ from core.procesorThread import processorThread
 from core.readerThread import readerThread
 from data.projectData import ProjectData
 from data.sharedData import SharedData
+
+from utils.utils_mqtt import MQTTClient
 
 # Configuracion del logging para la API guardando en la carpeta logs
 LOG_DIR = Path("logs")
@@ -38,7 +41,6 @@ projectData = ProjectData()
 def start_stream(
     rtspUrl: str = Query(..., description="RTSP URL of the video stream"),
     saveLog: bool = Query(False),
-    saveImages: bool = Query(False),
     saveInference: bool = Query(False),
     confidenceClass: float = 0.60,
     mqttBroker: str = Query(..., description="MQTT broker IP address"),
@@ -52,7 +54,6 @@ def start_stream(
     Args:
         rtspUrl (str): URL del stream RTSP a procesar
         saveLog (bool): Indica si se deben guardar los logs de detección en un archivo de texto. Default: False
-        saveImages (bool): Indica si se deben guardar las imágenes con las detecciones superpuestas. Default: False
         saveInference (bool): Indica si se deben guardar las inferencias (clases y coordenadas) en un archivo JSON. Default: False
         confidenceClass (float): Umbral de confianza para la clase. Default: 0.60
         mqttBroker (str): Dirección IP del broker MQTT al que se publicarán las detecciones
@@ -62,6 +63,14 @@ def start_stream(
     Returns:
             dict: Un diccionario con un mensaje de inicio y la configuración utilizada para el stream
     """
+
+    #Creacion de la instancia del cliente MQTT para publicar las detecciones
+    mqttClient = MQTTClient(
+        clientID="TFM_API_Client",
+        broker=mqttBroker,
+        port=mqttPort,
+        topic=mqttTopic
+    )
 
     # Inicializacion de los dos hilos para lectura y procesamiento del stream RTSP (a implementar en la función real)
 
@@ -80,12 +89,9 @@ def start_stream(
             sharedData,
             projectData,
             saveLog,
-            saveImages,
             saveInference,
             confidenceClass,
-            mqttBroker,
-            mqttPort,
-            mqttTopic,
+            mqttClient
         ),
         name="HiloProcessor",
         daemon=True,
@@ -156,4 +162,26 @@ async def root():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    PATH_CONFIG = Path("config/config.json")
+    if not PATH_CONFIG.is_file():
+        logging.error(f"Archivo de configuración no encontrado: {PATH_CONFIG}")
+        raise FileNotFoundError(f"Archivo de configuración no encontrado: {PATH_CONFIG}")
+
+    try:
+        with open(PATH_CONFIG, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        logging.info(f"Archivo de configuración cargado correctamente: {PATH_CONFIG}")
+    except json.JSONDecodeError as e:
+        logging.error(f"Error al parsear el archivo de configuración: {e}")
+        raise ValueError(f"Error al parsear el archivo de configuración: {e}")
+
+    #Validacion de la IP y el puerto del broker MQTT
+    APIconfig = config.get("API", {})
+    APIIp = APIconfig.get("IP")
+    APIPort = APIconfig.get("PORT")
+    if not APIIp or not APIPort:
+        logging.error("IP o puerto del broker MQTT no especificados en la configuración")
+        raise ValueError("IP o puerto del broker MQTT no especificados en la configuración")
+
+    uvicorn.run(app, host=APIIp, port=APIPort)
