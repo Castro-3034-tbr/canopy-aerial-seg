@@ -1,5 +1,5 @@
-dataPruebas/**
-!dataPruebas/.gitkeep
+dataset/**
+!dataset/.gitkeep
 output/**
 !output/.gitkeep
 logs/
