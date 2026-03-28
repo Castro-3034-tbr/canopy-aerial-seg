@@ -19,6 +19,7 @@ def processorThread(
 ):
     """Función que se ejecuta en un hilo separado para procesar el stream RTSP y publicar los resultados en MQTT."""
     
+    logCSV = None
     if saveLog:
         #Creacion del archivo csv de log para este hilo
         logCSV = f"logs/log_{int(time.time())}.csv"
@@ -33,46 +34,29 @@ def processorThread(
         frame = package["img"]
 
         #Realizamos la deteccion con el modelo YOLO y obtenemos los resultados
-        results = classYolo.predict(frame)
+        yolo_results = classYolo.predict(frame)
 
-        #Obtenemos los resultados
-        classes = results[0].boxes.cls.cpu().numpy()
-        confidences = results[0].boxes.conf.cpu().numpy()
-        bbox = results[0].boxes.xyxy.cpu().numpy()
-        masks = results[0].masks.data.cpu().numpy() if results[0].masks is not None else None
-        detecciones = []
-        for i in range(len(classes)):
-            if confidences[i] >= confidenceClass:
-                detecciones[i] = {
-                    "class": classes[i],
-                    "confidence": confidences[i],
-                    "bbox": bbox[i].tolist(),
-                    "mask": masks[i].tolist() if masks is not None else None
-                }
-
-        #Construimos el diccionario de resultados para publicarlo en MQTT
-        results = {
-            "frame_id": package["frame_id"],
-            "detections": detecciones
-        }
+        #Obtenemos los resultados en formato serializable
+        detections = classYolo.extractDetections(yolo_results, confidence_threshold=confidenceClass)
 
         #Logica de publicacion de resultados en MQTT
-        mqttClient.publish(results)
+        mqttClient.publish(detections)
 
         #Escribimos el frame procesado
         if saveLog:
-            dfLog = pd.DataFrame([{
-                "timestamp": time.time(),
-                "frame_id": package["frame_id"],
-                "class": classes,
-                "confidence": confidences,
-                "bbox": bbox,
-                "mask": masks
-            }])
-            dfLog.to_csv(logCSV, mode='a', header=False, index=False)
+            for detection in detections:
+                dfLog = pd.DataFrame([{
+                    "timestamp": time.time(),
+                    "frame_id": package["frame_id"],
+                    "class": detection["class_id"],
+                    "confidence": detection["confidence"],
+                    "bbox": str(detection["bbox"]),
+                    "mask": "present" if detection["mask"] is not None else "absent"
+                }])
+                dfLog.to_csv(logCSV, mode='a', header=False, index=False)
 
 
         if saveInference:
             #Guardamos el frame con las detecciones dibujadas
-            annotated_frame = classYolo.drawResults(frame, results)
+            annotated_frame = classYolo.drawResults(frame, yolo_results)
             cv2.imwrite(f"inference/frame_{package['frame_id']}.jpg", annotated_frame)

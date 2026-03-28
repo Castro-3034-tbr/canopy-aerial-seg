@@ -1,93 +1,115 @@
-"""
-Archivo que encapsula la logica de procesamiento de frames
-"""
+"""Utilidades para inferencia, visualizacion y postproceso con YOLO."""
 
-import ultralytics
+from __future__ import annotations
+
+from typing import Any
+
 import cv2
 import numpy as np
-
+import ultralytics
 
 
 class ClassYOLO:
-    def __init__(self, model_path: str = "yolov8m.pt", device: str = "cpu"):
-        
+    """Encapsula el uso del modelo YOLO dentro del proyecto."""
+
+    def __init__(self, model_path: str = "yolov8m.pt", device: str = "cpu") -> None:
         self.model = ultralytics.YOLO(model_path)
         self.model.to(device)
 
-    def predict(self, frame):
-        results = self.model(frame)
-        return results
-    
-    
-    def drawResults(self, frame, results):
-        #Comprobamos si se han detectado objetos con mascara en el frame
-        if results[0].masks is None:
-            return frame.copy()  #Devolvemos una copia del frame original si no se han detectado objetos con mascara
-        
-        #Obtenemos los bbox y las clases detectadas, y las dibujamos en el frame
-        masks = results[0].masks.data.cpu().numpy()
-        
-        #Hacemos una copia del frame para dibujar los resultados
+    def predict(self, frame: np.ndarray):
+        """Ejecuta inferencia sobre un frame BGR."""
+        return self.model(frame)
+
+    def extractDetections(
+        self,
+        results,
+        confidence_threshold: float = 0.0,
+    ) -> list[dict[str, Any]]:
+        """Extrae detecciones a un formato serializable y estable."""
+        result = results[0]
+        if result.boxes is None or len(result.boxes) == 0:
+            return []
+
+        boxes = result.boxes.xyxy.cpu().numpy()
+        classes = result.boxes.cls.cpu().numpy()
+        confidences = result.boxes.conf.cpu().numpy()
+        masks = result.masks.data.cpu().numpy() if result.masks is not None else None
+
+        detections: list[dict[str, Any]] = []
+        for index, class_id in enumerate(classes):
+            confidence = float(confidences[index])
+            if confidence < confidence_threshold:
+                continue
+
+            class_idx = int(class_id)
+            mask = masks[index] if masks is not None else None
+            centroid = self.calculateCentroid(mask) if mask is not None else None
+            detections.append(
+                {
+                    "class_id": class_idx,
+                    "confidence": confidence,
+                    "bbox": boxes[index].tolist(),
+                    "mask": mask.tolist() if mask is not None else None,
+                    "centroid": list(centroid) if centroid is not None else None,
+                }
+            )
+
+        return detections
+
+    def drawResults(self, frame: np.ndarray, results) -> np.ndarray:
+        """Dibuja mascaras y centroides sobre una copia del frame."""
+        result = results[0]
+        if result.masks is None:
+            return frame.copy()
+
+        masks = result.masks.data.cpu().numpy()
         annotated_frame = frame.copy()
-        
-        #Dibujamos los bbox y las clases detectadas en el frame
-        for i in range(len(masks) ):
-            #Calculamos el centroide de la mascara para dibujar el nombre de la clase
-            centroid = self.calcularCentroid(masks[i])
-            
-            colorMask = (0, 255, 0)
-            colorCentroid = (0, 0, 255)
-            #Dibujamos el centroide y el nombre de la clase si el centroide es valido
+
+        for mask in masks:
+            centroid = self.calculateCentroid(mask)
+            colored_mask = np.zeros_like(annotated_frame)
+            colored_mask[mask > 0.5] = (0, 255, 0)
+            annotated_frame = cv2.addWeighted(annotated_frame, 1.0, colored_mask, 0.5, 0)
+
             if centroid is not None:
-                cX, cY = centroid
-                cv2.circle(annotated_frame, (cX, cY), 5, colorCentroid, -1)
-            
-            #Dibujamos la mascara si existe
-            if masks is not None:
-                mask = masks[i]
-                colored_mask = np.zeros_like(annotated_frame)
-                colored_mask[mask > 0.5] = colorMask
-                annotated_frame = cv2.addWeighted(annotated_frame, 1.0, colored_mask, 0.5, 0)
-        
+                cv2.circle(annotated_frame, centroid, 5, (0, 0, 255), -1)
+
         return annotated_frame
-    
-    def calcularCentroid(self, mask):
-        """Funcion para calcular el centroide de una mascara binaria
 
-        Args:
-            mask (numpy.ndarray): mascara binaria de la deteccion
-
-        Returns:
-            tuple: coordenadas del centroide (x, y)
-        """
-        moments = cv2.moments(mask.astype(np.uint8))
-        if moments["m00"] != 0:
-            cX = int(moments["m10"] / moments["m00"])
-            cY = int(moments["m01"] / moments["m00"])
-            return (cX, cY)
-        else:
+    def calculateCentroid(self, mask: np.ndarray | None) -> tuple[int, int] | None:
+        """Calcula el centroide de una mascara binaria."""
+        if mask is None:
             return None
 
-    
-    def processFrame(self,results):
-        """Funcion para calcular el area que tiene la mascara respecto a la imagen 
-        para despues calcular el area real de la mascara dependiendo del GSD de la imagen
+        moments = cv2.moments(mask.astype(np.uint8))
+        if moments["m00"] == 0:
+            return None
 
-        Args:
-            results (ultralytics.yolo.engine.results.Results): Resultados de la inferencia del modelo YOLO
-        """
-        
-        #Obtenemos el tamaño del frame y la mascara de cada deteccion
-        frame_width = results[0].orig_shape[1]
-        frame_height = results[0].orig_shape[0]
-        masks = results[0].masks.data.cpu().numpy() if results[0].masks is not None else None
-        
-        
-        #Calculamos el area de cada mascara y la relacion con el area total del frame
-        if masks is not None:
-            for i in range(masks.shape[0]):
-                mask = masks[i]
-                mask_area = np.sum(mask > 0.5)
-                frame_area = frame_width * frame_height
-                area_ratio = mask_area / frame_area
-                print(f"Mask {i}: Area={mask_area}, Frame Area={frame_area}, Area Ratio={area_ratio:.4f}")
+        c_x = int(moments["m10"] / moments["m00"])
+        c_y = int(moments["m01"] / moments["m00"])
+        return (c_x, c_y)
+
+    def processFrame(self, results) -> list[dict[str, float | int]]:
+        """Calcula estadisticas de area para cada mascara detectada."""
+        result = results[0]
+        masks = result.masks.data.cpu().numpy() if result.masks is not None else None
+        if masks is None:
+            return []
+
+        frame_height, frame_width = result.orig_shape
+        frame_area = frame_width * frame_height
+        mask_metrics: list[dict[str, float | int]] = []
+
+        for index, mask in enumerate(masks):
+            mask_area = int(np.sum(mask > 0.5))
+            area_ratio = float(mask_area / frame_area) if frame_area else 0.0
+            mask_metrics.append(
+                {
+                    "mask_index": index,
+                    "mask_area": mask_area,
+                    "frame_area": frame_area,
+                    "area_ratio": area_ratio,
+                }
+            )
+
+        return mask_metrics
