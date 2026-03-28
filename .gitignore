@@ -4,3 +4,8 @@ Variables_buscar.md
 .trunk
 output/**
 !output/.gitkeep
+data/**
+!data/data.yaml
+api/**
+models/**
+__pycache__/**
