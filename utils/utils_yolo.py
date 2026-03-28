@@ -20,39 +20,54 @@ class ClassYOLO:
     
     
     def drawResults(self, frame, results):
+        #Comprobamos si se han detectado objetos con mascara en el frame
+        if results[0].masks is None:
+            return frame.copy()  #Devolvemos una copia del frame original si no se han detectado objetos con mascara
         
         #Obtenemos los bbox y las clases detectadas, y las dibujamos en el frame
-        bbox = results[0].boxes.xyxy.cpu().numpy()
-        classes = results[0].boxes.cls.cpu().numpy()
-        confidences = results[0].boxes.conf.cpu().numpy()
-        masks = results[0].masks.data.cpu().numpy() if results[0].masks is not None else None
+        masks = results[0].masks.data.cpu().numpy()
         
         #Hacemos una copia del frame para dibujar los resultados
         annotated_frame = frame.copy()
         
         #Dibujamos los bbox y las clases detectadas en el frame
-        for i in range(len(bbox)):
-            x1, y1, x2, y2 = bbox[i]
-            cls = int(classes[i])
-            conf = confidences[i]
+        for i in range(len(masks) ):
+            #Calculamos el centroide de la mascara para dibujar el nombre de la clase
+            centroid = self.calcularCentroid(masks[i])
             
-            #Dibujamos el bbox
-            color = (0, 255, 0) if cls == 0 else (255, 255, 0) # Verde para complete, amarillo para incomplete
-            cv2.rectangle(annotated_frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-            
-            #Dibujamos la clase y la confianza
-            label = f"{'complete' if cls == 0 else 'incomplete'}: {conf:.2f}"
-            cv2.putText(annotated_frame, label, (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            colorMask = (0, 255, 0)
+            colorCentroid = (0, 0, 255)
+            #Dibujamos el centroide y el nombre de la clase si el centroide es valido
+            if centroid is not None:
+                cX, cY = centroid
+                cv2.circle(annotated_frame, (cX, cY), 5, colorCentroid, -1)
             
             #Dibujamos la mascara si existe
             if masks is not None:
                 mask = masks[i]
                 colored_mask = np.zeros_like(annotated_frame)
-                colored_mask[mask > 0.5] = color
+                colored_mask[mask > 0.5] = colorMask
                 annotated_frame = cv2.addWeighted(annotated_frame, 1.0, colored_mask, 0.5, 0)
         
         return annotated_frame
     
+    def calcularCentroid(self, mask):
+        """Funcion para calcular el centroide de una mascara binaria
+
+        Args:
+            mask (numpy.ndarray): mascara binaria de la deteccion
+
+        Returns:
+            tuple: coordenadas del centroide (x, y)
+        """
+        moments = cv2.moments(mask.astype(np.uint8))
+        if moments["m00"] != 0:
+            cX = int(moments["m10"] / moments["m00"])
+            cY = int(moments["m01"] / moments["m00"])
+            return (cX, cY)
+        else:
+            return None
+
     
     def processFrame(self,results):
         """Funcion para calcular el area que tiene la mascara respecto a la imagen 
