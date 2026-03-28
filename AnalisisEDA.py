@@ -7,6 +7,8 @@ os.environ.pop("QT_QPA_FONTDIR", None)
 import pathlib
 from fractions import Fraction
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -18,7 +20,8 @@ class EDA:
 
         #Definicion de las variables que usaremos para almacenar la informacion de las imagenes y etiquetas
         self.images = []
-        self.labels = []
+        self.labelsMask = []
+        self.labelsBbox = []
         self.incorrect_images = []
         self.incorrect_labels = []
         
@@ -26,6 +29,7 @@ class EDA:
         self.imageSizes = {}
         self.imagesAspectRatios = {}
         self.labelSizes = []
+        self.labelAreas = []
         self.labelsCenters = []
         self.labelAscpectRatios = {}
         self.labelPositionsX = []
@@ -37,6 +41,49 @@ class EDA:
         self.imagesBrightness = []
         self.imagesContrast = []
         self.imagesBlur = []
+
+    def _parsePolygonLabel(self, label):
+        """Parsea una etiqueta YOLO de segmentación: clase x1 y1 x2 y2 ..."""
+        text = label.strip().split()
+
+        # clase + al menos 3 puntos (6 coordenadas)
+        if len(text) < 7 or (len(text) - 1) % 2 != 0:
+            return None
+
+        try:
+            class_id = int(float(text[0]))
+            coords = np.array(list(map(float, text[1:])), dtype=np.float64).reshape(-1, 2)
+        except ValueError:
+            return None
+
+        if class_id < 0:
+            return None
+
+        if not np.all((coords >= 0.0) & (coords <= 1.0)):
+            return None
+
+        return class_id, coords
+
+    def _polygonArea(self, polygon):
+        """Calcula el área normalizada de un polígono usando Shoelace."""
+        x = polygon[:, 0]
+        y = polygon[:, 1]
+        return 0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+
+    def _polygonCentroid(self, polygon):
+        """Calcula el centroide de un polígono; usa media de puntos si el área es casi cero."""
+        x = polygon[:, 0]
+        y = polygon[:, 1]
+
+        cross = x * np.roll(y, -1) - np.roll(x, -1) * y
+        area2 = np.sum(cross)
+
+        if abs(area2) < 1e-12:
+            return float(np.mean(x)), float(np.mean(y))
+
+        cx = np.sum((x + np.roll(x, -1)) * cross) / (3 * area2)
+        cy = np.sum((y + np.roll(y, -1)) * cross) / (3 * area2)
+        return float(np.clip(cx, 0.0, 1.0)), float(np.clip(cy, 0.0, 1.0))
 
     def loadImages(self, path):
         """Carga las imágenes y etiquetas desde el directorio especificado.
@@ -82,26 +129,34 @@ class EDA:
                 # Leemos el contenido del archivo de texto
                 with open(file_path, "r") as f:
                     labels = f.readlines()
-                # Agregamos la etiqueta a la lista de etiquetas
-                labelsComprobadas = []
+                labelsMaskComprobadas = []
+                labelsBboxComprobadas = []
                 # Verificamos que el formato de las etiquetas sea correcto (puedes ajustar esto según tus necesidades)
                 for label in labels:
-                    text = label.strip().split()
-                    # Verificar que cumpla con el formato esperado: clase (entero), x_center (float), y_center (float), width (float), height (float)
-                    if (
-                        len(text) < 5
-                        and float(text[0]) < 0
-                        and not all(0 <= float(coord) <= 1 for coord in text[1:5])
-                    ):
+                    # Formato esperado para segmentación: clase + coordenadas normalizadas del polígono.
+                    parsed = self._parsePolygonLabel(label)
+                    if parsed is None:
                         self.incorrect_labels.append((file_path, label))
                     else:
-                        labelsComprobadas.append(label)
-                self.labels.append((file_path, labelsComprobadas))
+                        class_id, polygon = parsed
+                        labelsMaskComprobadas.append((class_id, polygon))
+
+                        x_min = float(np.min(polygon[:, 0]))
+                        x_max = float(np.max(polygon[:, 0]))
+                        y_min = float(np.min(polygon[:, 1]))
+                        y_max = float(np.max(polygon[:, 1]))
+                        width = max(0.0, x_max - x_min)
+                        height = max(0.0, y_max - y_min)
+                        labelsBboxComprobadas.append((class_id, (x_min, y_min, x_max, y_max, width, height)))
+
+                self.labelsMask.append((file_path, labelsMaskComprobadas))
+                self.labelsBbox.append((file_path, labelsBboxComprobadas))
             else:
                 self.incorrect_labels.append(file_path)
 
         # Ordenamos las etiquetas por nombre de archivo para facilitar la comparación con las imágenes
-        self.labels.sort(key=lambda x: os.path.basename(x[0]))
+        self.labelsMask.sort(key=lambda x: os.path.basename(x[0]))
+        self.labelsBbox.sort(key=lambda x: os.path.basename(x[0]))
 
     def analyzeTypeFiles(self):
         """Realizacion de un analisis del tipo de archivo de las imagenes"""
@@ -153,36 +208,31 @@ class EDA:
         """Realizacion de un analisis del tamaño relativo de las etiquetas respecto a las imagenes"""
 
         # Analizamos el tamaño relativo de cada etiqueta respecto a su imagen correspondiente
-        for _, labels in self.labels:
-            # Analizamos cada etiqueta en el archivo de etiquetas
-            for label in labels:
-                text = label.strip().split()
-                if (
-                    len(text) < 5
-                ):  # Verificar que la etiqueta tenga al menos 6 elementos (clase + 4 coordenadas)
-                    continue  # Saltar etiquetas mal formateadas
+        for (path_mask, masks), (path_bbox, bboxes) in zip(self.labelsMask, self.labelsBbox, strict=False):
+            if os.path.basename(path_mask) != os.path.basename(path_bbox):
+                continue
 
-                # Obtenemos el tamaño de la imagen correspondiente a la etiqueta
-                width = float(text[3]) * 100
-                height = float(text[4]) * 100
+            # Analizamos cada etiqueta en el archivo de etiquetas
+            for (_, polygon), (_, bbox) in zip(masks, bboxes, strict=False):
+                x_min, y_min, x_max, y_max, width, height = bbox
+
+                # Tamaño relativo de la caja envolvente en porcentaje respecto a la imagen.
+                width_pct = max(0.0, width * 100)
+                height_pct = max(0.0, height * 100)
+                area_pct = max(0.0, self._polygonArea(polygon) * 100)
 
                 # Agregamos el tamaño relativo de la etiqueta respecto a la imagen a las listas correspondientes
-                self.labelSizes.append((width, height))
+                self.labelSizes.append((width_pct, height_pct))
+                self.labelAreas.append(area_pct)
 
     def analyzePositionLabels(self):
         """Realizacion de un analisis de la distribucion de las etiquetas especialmente (Verticalmente y horizontalmente)"""
 
-        for _, labels in self.labels:
-            for label in labels:
-                text = label.strip().split()
-                if (
-                    len(text) < 5
-                ):  # Verificar que la etiqueta tenga al menos 6 elementos (clase + 4 coordenadas)
-                    continue  # Saltar etiquetas mal formateadas
+        for _, labels in self.labelsMask:
+            for _, polygon in labels:
 
-                # Obtenemos el tamaño de la imagen correspondiente a la etiqueta
-                x_center = float(text[1])
-                y_center = float(text[2])
+                # Calculamos el centro de la máscara usando su centroide.
+                x_center, y_center = self._polygonCentroid(polygon)
 
                 # Agregamos la posición de la etiqueta a las listas correspondientes
                 self.labelsCenters.append((x_center, y_center))
@@ -209,7 +259,7 @@ class EDA:
         """Realizacion de un analisis del numero de etiquetas por imagen"""
 
         # Analizamos el número de etiquetas por imagen
-        for _, labels in self.labels:
+        for _, labels in self.labelsMask:
             num_labels = len(labels)
             self.numLabelsPerImage.append(num_labels)
 
@@ -235,6 +285,9 @@ class EDA:
 
         # Guardamos el grafico si se especifica un path de salida
         if pathOutput:
+            output_dir = os.path.dirname(pathOutput)
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
             plt.savefig(pathOutput)
 
     def analyzeLabelsAspectRatio(self):
@@ -246,8 +299,13 @@ class EDA:
 
         # Analizamos la relacion de aspecto de cada etiqueta
         for width, height in self.labelSizes:
+            if height <= 0:
+                continue
+
             # Calculamos la relacion de aspecto como fracción simplificada (ej. 16/9)
-            frac = Fraction(int(width), int(height))
+            width_int = max(1, int(round(width * 100)))
+            height_int = max(1, int(round(height * 100)))
+            frac = Fraction(width_int, height_int)
             aspect_ratio = f"{frac.numerator}/{frac.denominator}"
 
             # Contamos el número de etiquetas por relación de aspecto
@@ -287,27 +345,17 @@ class EDA:
     def analyzeLabelsSolapamiento(self):
         """Realizacion de un analisis del solapamiento entre etiquetas (IoU)"""
 
-        if not self.labels:
+        if not self.labelsBbox:
             return # No hay etiquetas para analizar
 
         #Obtemos las etiquetas para  cada imagen
-        for _, labels in self.labels:
+        for _, labels in self.labelsBbox:
             #Analizamos el solapamiento cuando hay más de una etiqueta en la imagen
             if len(labels) > 1:
                 #Obtenemos las coordenadas de cada etiqueta
                 bboxes = []
-                for label in labels:
-                    text = label.strip().split()
-
-                    x_center = float(text[1])
-                    y_center = float(text[2])
-                    width = float(text[3])
-                    height = float(text[4])
-                    x_min = x_center - width / 2
-                    y_min = y_center - height / 2
-                    x_max = x_center + width / 2
-                    y_max = y_center + height / 2
-                    bboxes.append((x_min, y_min, x_max, y_max, width, height))
+                for _, bbox in labels:
+                    bboxes.append(bbox)
 
                 #Calculamos el IoU entre cada par de etiquetas
                 for i in range(len(bboxes)):
@@ -351,10 +399,12 @@ class EDA:
             contrast = float(np.std(gray))
             self.imagesContrast.append(contrast)
 
-    def generateContinuosPlots(self, dato, output_dir, filename):
+    def generateContinuosPlots(self, dato, output_path, title):
         """Genera y guarda un gráfico de histograma con curva normal superpuesta."""
-        # Creamos el directorio de salida si no existe
-        os.makedirs(output_dir, exist_ok=True)
+        # Creamos el directorio padre del archivo de salida si no existe
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
 
         # Conversion del dato a array de numpy para facilitar el manejo
         data = np.array(dato)
@@ -379,7 +429,7 @@ class EDA:
         ax.legend()
 
         fig.tight_layout()
-        fig.savefig(os.path.join(output_dir, f"{filename}.png"))
+        fig.savefig(output_path)
         plt.close(fig)
 
     def analyzeDesenfoque(self):
@@ -396,10 +446,13 @@ class EDA:
             blur_metric = cv2.Laplacian(gray, cv2.CV_64F).var()
             self.imagesBlur.append(blur_metric)
 
-    def saveResults(self, output_dir):
+    def saveResults(self, output_path):
         """Guarda los resultados del análisis en un archivo de texto."""
-        os.makedirs(output_dir, exist_ok=True)
-        with open(os.path.join(output_dir, "eda_results.txt"), "w") as f:
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+
+        with open(output_path, "w") as f:
             f.write("Resultados del Análisis EDA:\n\n")
 
             #Imagenes cargadas
@@ -409,8 +462,9 @@ class EDA:
                 f.write("No se han cargado imágenes correctamente.\n")
 
             #Etiquetas cargadas
-            if len(self.labels) > 0:
-                f.write(f"Número total de etiquetas: {len(self.labels)}\n")
+            total_labels = sum(len(labels) for _, labels in self.labelsMask)
+            if total_labels > 0:
+                f.write(f"Número total de etiquetas: {total_labels}\n")
             else:
                 f.write("No se han cargado etiquetas correctamente.\n")
 
@@ -462,6 +516,12 @@ class EDA:
             else:
                 f.write("No se han obtenido relaciones de aspecto de etiquetas.\n")
 
+            #Área de las máscaras respecto a la imagen
+            if len(self.labelAreas) > 0:
+                f.write(f"Área relativa de máscaras (% de imagen):\n\t Media: {np.mean(self.labelAreas):.2f}\n\t Mediana: {np.median(self.labelAreas):.2f}\n\t Mínimo: {np.min(self.labelAreas):.2f}\n\t Máximo: {np.max(self.labelAreas):.2f}\n")
+            else:
+                f.write("No se han obtenido áreas relativas de máscaras.\n")
+
             #Cuadrantes X de las etiquetas
             if len(self.labelCuadrantesX) > 0:
                 f.write(f"Cuadrantes X de etiquetas: {self.labelCuadrantesX}\n")
@@ -504,19 +564,43 @@ class EDA:
 
 # Definicion de path
 BASE_DIR = pathlib.Path(__file__).parent
-pathImages = os.path.join(BASE_DIR, "dataPruebas/images")
-pathLabels = os.path.join(BASE_DIR, "dataPruebas/labels")
+pathTrainImages = os.path.join(BASE_DIR, "data/train/images")
+pathTrainLabels = os.path.join(BASE_DIR, "data/train/labels")
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
-print("Path de las imágenes:", pathImages)
-print("Path de las etiquetas:", pathLabels)
-
 # Creación de la instancia de la clase EDA
-eda = EDA()
+edaTrain = EDA()
+edaVal = EDA()
+edaTest = EDA()
 
 # Carga de las imágenes y etiquetas
-eda.loadImages(pathImages)
-eda.loadLabels(pathLabels)
+edaTrain.loadImages(pathTrainImages)
+edaTrain.loadLabels(pathTrainLabels)
 
-print("Número de imágenes cargadas:", len(eda.images))
-print("Número de etiquetas cargadas:", len(eda.labels))
+print("Número de imágenes cargadas: (Train)", len(edaTrain.images))
+print("Número de etiquetas cargadas: (Train)", len(edaTrain.labelsMask))
+
+
+
+#Realizamos todas los analisis para el conjunto de entrenamiento
+edaTrain.analyzeTypeFiles()
+edaTrain.analyzeImageSizes()
+edaTrain.analyzeAspectRatio()
+edaTrain.analyzeLabelsSize()
+edaTrain.analyzePositionLabels()
+edaTrain.analyzeNumLabelsPerImage()
+edaTrain.analyzeLabelsAspectRatio()
+edaTrain.analyzeLabelsSolapamiento()
+edaTrain.analyzeBrightness()
+edaTrain.analyzeContrast()
+edaTrain.analyzeDesenfoque()
+edaTrain.generateDensityCenterPlot(os.path.join(OUTPUT_DIR, "train/density_center.png"))
+edaTrain.generateContinuosPlots(edaTrain.numLabelsPerImage, os.path.join(OUTPUT_DIR, "train/num_labels_per_image.png"), "Número de etiquetas por imagen")
+edaTrain.generateContinuosPlots(edaTrain.labelAreas, os.path.join(OUTPUT_DIR, "train/label_areas.png"), "Área relativa de etiquetas (% de imagen)")
+edaTrain.generateContinuosPlots(edaTrain.labelsUIO, os.path.join(OUTPUT_DIR, "train/labels_iou.png"), "Valores de IoU entre etiquetas")
+edaTrain.generateContinuosPlots(edaTrain.imagesBrightness, os.path.join(OUTPUT_DIR, "train/images_brightness.png"), "Brillo de imágenes")
+edaTrain.generateContinuosPlots(edaTrain.imagesContrast, os.path.join(OUTPUT_DIR, "train/images_contrast.png"), "Contraste de imágenes")
+edaTrain.generateContinuosPlots(edaTrain.imagesBlur, os.path.join(OUTPUT_DIR, "train/images_blur.png"), "Desenfoque de imágenes")
+
+#Guardamos los resultados del análisis en un archivo de texto
+edaTrain.saveResults(os.path.join(OUTPUT_DIR, "train/eda_results.txt"))
