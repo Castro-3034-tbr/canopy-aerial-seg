@@ -8,6 +8,7 @@ import pathlib
 from fractions import Fraction
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,7 +25,7 @@ class EDA:
         self.labelsBbox = []
         self.incorrect_images = []
         self.incorrect_labels = []
-        
+
         self.imageTypes = {}
         self.imageSizes = {}
         self.imagesAspectRatios = {}
@@ -42,6 +43,7 @@ class EDA:
         self.imagesContrast = []
         self.imagesBlur = []
 
+    # Utilidades internas
     def _parsePolygonLabel(self, label):
         """Parsea una etiqueta YOLO de segmentación: clase x1 y1 x2 y2 ..."""
         text = label.strip().split()
@@ -85,6 +87,35 @@ class EDA:
         cy = np.sum((y + np.roll(y, -1)) * cross) / (3 * area2)
         return float(np.clip(cx, 0.0, 1.0)), float(np.clip(cy, 0.0, 1.0))
 
+    def calculateIoU(self, bbox1, bbox2):
+        """Función para calcular el Intersection over Union (IoU) entre dos bounding boxes"""
+        x_min1, y_min1, x_max1, y_max1, width1, height1 = bbox1
+        x_min2, y_min2, x_max2, y_max2, width2, height2 = bbox2
+
+        # Calculamos las coordenadas del área de intersección
+        x_min_inter = max(x_min1, x_min2)
+        y_min_inter = max(y_min1, y_min2)
+        x_max_inter = min(x_max1, x_max2)
+        y_max_inter = min(y_max1, y_max2)
+
+        # Calculamos el área de intersección
+        inter_width = max(0, x_max_inter - x_min_inter)
+        inter_height = max(0, y_max_inter - y_min_inter)
+        area_inter = inter_width * inter_height
+
+        # Calculamos el área de cada bounding box
+        area_bbox1 = width1 * height1
+        area_bbox2 = width2 * height2
+
+        # Calculamos el área de unión
+        area_union = area_bbox1 + area_bbox2 - area_inter
+
+        # Calculamos el IoU
+        iou = area_inter / area_union if area_union > 0 else 0
+
+        return iou
+
+    # Carga y validación de datos
     def loadImages(self, path):
         """Carga las imágenes y etiquetas desde el directorio especificado.
 
@@ -158,6 +189,7 @@ class EDA:
         self.labelsMask.sort(key=lambda x: os.path.basename(x[0]))
         self.labelsBbox.sort(key=lambda x: os.path.basename(x[0]))
 
+    # Análisis de imágenes
     def analyzeTypeFiles(self):
         """Realizacion de un analisis del tipo de archivo de las imagenes"""
 
@@ -204,6 +236,54 @@ class EDA:
             else:
                 self.imagesAspectRatios[aspect_ratio] = 1
 
+    def analyzeBrightness(self):
+        """Realizacion de un analisis del brillo de las imagenes"""
+        if not self.images:
+            return  # No hay imágenes para analizar
+
+        # Analizamos el brillo de cada imagen
+        for _, image in self.images:
+            # Convertimos la imagen a escala de grises
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+            # Calculamos el brillo promedio de la imagen
+            brightness = np.mean(gray)
+            self.imagesBrightness.append(brightness)
+
+    def analyzeContrast(self):
+        """Realizacion de un analisis del contraste de las imagenes
+            Notas de rango
+            <20 = Bajo contraste
+            20-50 = Contraste medio
+            >50 = Alto contraste
+        """
+        if not self.images:
+            return  # No hay imágenes para analizar
+
+        # Analizamos el contraste de cada imagen
+        for _, image in self.images:
+            # Convertimos la imagen a escala de grises
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+            # Calculamos el contraste usando la varianza de Laplacian
+            contrast = float(np.std(gray))
+            self.imagesContrast.append(contrast)
+
+    def analyzeDesenfoque(self):
+        """Realizacion de un analisis del desenfoque de las imagenes usando la varianza de Laplacian"""
+        if not self.images:
+            return  # No hay imágenes para analizar
+
+        # Analizamos el desenfoque de cada imagen
+        for _, image in self.images:
+            # Convertimos la imagen a escala de grises
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+            # Calculamos la varianza de Laplacian para evaluar el desenfoque
+            blur_metric = cv2.Laplacian(gray, cv2.CV_64F).var()
+            self.imagesBlur.append(blur_metric)
+
+    # Análisis de etiquetas
     def analyzeLabelsSize(self):
         """Realizacion de un analisis del tamaño relativo de las etiquetas respecto a las imagenes"""
 
@@ -224,6 +304,30 @@ class EDA:
                 # Agregamos el tamaño relativo de la etiqueta respecto a la imagen a las listas correspondientes
                 self.labelSizes.append((width_pct, height_pct))
                 self.labelAreas.append(area_pct)
+
+    def analyzeLabelsAspectRatio(self):
+        """Realizacion de un analisis de la relacion de aspecto de las etiquetas"""
+
+        #Validamos si ya se han analizado los tamaños de las etiquetas, si no es así, los analizamos
+        if not self.labelSizes:
+            self.analyzeLabelsSize()
+
+        # Analizamos la relacion de aspecto de cada etiqueta
+        for width, height in self.labelSizes:
+            if height <= 0:
+                continue
+
+            # Calculamos la relacion de aspecto como fracción simplificada (ej. 16/9)
+            width_int = max(1, int(round(width * 100)))
+            height_int = max(1, int(round(height * 100)))
+            frac = Fraction(width_int, height_int)
+            aspect_ratio = f"{frac.numerator}/{frac.denominator}"
+
+            # Contamos el número de etiquetas por relación de aspecto
+            if aspect_ratio in self.labelAscpectRatios:
+                self.labelAscpectRatios[aspect_ratio] += 1
+            else:
+                self.labelAscpectRatios[aspect_ratio] = 1
 
     def analyzePositionLabels(self):
         """Realizacion de un analisis de la distribucion de las etiquetas especialmente (Verticalmente y horizontalmente)"""
@@ -263,6 +367,31 @@ class EDA:
             num_labels = len(labels)
             self.numLabelsPerImage.append(num_labels)
 
+    def analyzeLabelsSolapamiento(self):
+        """Realizacion de un analisis del solapamiento entre etiquetas (IoU)"""
+
+        if not self.labelsBbox:
+            return  # No hay etiquetas para analizar
+
+        #Obtemos las etiquetas para  cada imagen
+        for _, labels in self.labelsBbox:
+            #Analizamos el solapamiento cuando hay más de una etiqueta en la imagen
+            if len(labels) > 1:
+                #Obtenemos las coordenadas de cada etiqueta
+                bboxes = []
+                for _, bbox in labels:
+                    bboxes.append(bbox)
+
+                #Calculamos el IoU entre cada par de etiquetas
+                for i in range(len(bboxes)):
+                    for j in range(i + 1, len(bboxes)):
+                        bbox1 = bboxes[i]
+                        bbox2 = bboxes[j]
+                        iou = self.calculateIoU(bbox1, bbox2)
+                        #Aquí podrías almacenar o analizar el IoU según tus necesidades
+                        self.labelsUIO.append(iou)
+
+    # Visualización y salida
     def generateDensityCenterPlot(self, pathOutput=None):
         """Generacion de un grafico de densidad para la posición de las etiquetas"""
 
@@ -289,115 +418,6 @@ class EDA:
             if output_dir:
                 os.makedirs(output_dir, exist_ok=True)
             plt.savefig(pathOutput)
-
-    def analyzeLabelsAspectRatio(self):
-        """Realizacion de un analisis de la relacion de aspecto de las etiquetas"""
-
-        #Validamos si ya se han analizado los tamaños de las etiquetas, si no es así, los analizamos
-        if not self.labelSizes:
-            self.analyzeLabelsSize()
-
-        # Analizamos la relacion de aspecto de cada etiqueta
-        for width, height in self.labelSizes:
-            if height <= 0:
-                continue
-
-            # Calculamos la relacion de aspecto como fracción simplificada (ej. 16/9)
-            width_int = max(1, int(round(width * 100)))
-            height_int = max(1, int(round(height * 100)))
-            frac = Fraction(width_int, height_int)
-            aspect_ratio = f"{frac.numerator}/{frac.denominator}"
-
-            # Contamos el número de etiquetas por relación de aspecto
-            if aspect_ratio in self.labelAscpectRatios:
-                self.labelAscpectRatios[aspect_ratio] += 1
-            else:
-                self.labelAscpectRatios[aspect_ratio] = 1
-
-    def calculateIoU(self, bbox1, bbox2):
-        """Función para calcular el Intersection over Union (IoU) entre dos bounding boxes"""
-        x_min1, y_min1, x_max1, y_max1 , width1, height1 = bbox1
-        x_min2, y_min2, x_max2, y_max2 , width2, height2 = bbox2
-
-        # Calculamos las coordenadas del área de intersección
-        x_min_inter = max(x_min1, x_min2)
-        y_min_inter = max(y_min1, y_min2)
-        x_max_inter = min(x_max1, x_max2)
-        y_max_inter = min(y_max1, y_max2)
-
-        # Calculamos el área de intersección
-        inter_width = max(0, x_max_inter - x_min_inter)
-        inter_height = max(0, y_max_inter - y_min_inter)
-        area_inter = inter_width * inter_height
-
-        # Calculamos el área de cada bounding box
-        area_bbox1 = width1 * height1
-        area_bbox2 = width2 * height2
-
-        # Calculamos el área de unión
-        area_union = area_bbox1 + area_bbox2 - area_inter
-
-        # Calculamos el IoU
-        iou = area_inter / area_union if area_union > 0 else 0
-
-        return iou
-
-    def analyzeLabelsSolapamiento(self):
-        """Realizacion de un analisis del solapamiento entre etiquetas (IoU)"""
-
-        if not self.labelsBbox:
-            return # No hay etiquetas para analizar
-
-        #Obtemos las etiquetas para  cada imagen
-        for _, labels in self.labelsBbox:
-            #Analizamos el solapamiento cuando hay más de una etiqueta en la imagen
-            if len(labels) > 1:
-                #Obtenemos las coordenadas de cada etiqueta
-                bboxes = []
-                for _, bbox in labels:
-                    bboxes.append(bbox)
-
-                #Calculamos el IoU entre cada par de etiquetas
-                for i in range(len(bboxes)):
-                    for j in range(i + 1, len(bboxes)):
-                        bbox1 = bboxes[i]
-                        bbox2 = bboxes[j]
-                        iou = self.calculateIoU(bbox1, bbox2)
-                        #Aquí podrías almacenar o analizar el IoU según tus necesidades
-                        self.labelsUIO.append(iou)
-
-    def analyzeBrightness(self):
-        """Realizacion de un analisis del brillo de las imagenes"""
-        if not self.images:
-            return # No hay imágenes para analizar
-
-        # Analizamos el brillo de cada imagen
-        for _, image in self.images:
-            # Convertimos la imagen a escala de grises
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-            # Calculamos el brillo promedio de la imagen
-            brightness = np.mean(gray)
-            self.imagesBrightness.append(brightness)
-
-    def analyzeContrast(self):
-        """Realizacion de un analisis del contraste de las imagenes
-            Notas de rango
-            <20 = Bajo contraste
-            20-50 = Contraste medio
-            >50 = Alto contraste
-        """
-        if not self.images:
-            return # No hay imágenes para analizar
-
-        # Analizamos el contraste de cada imagen
-        for _, image in self.images:
-            # Convertimos la imagen a escala de grises
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-            # Calculamos el contraste usando la varianza de Laplacian
-            contrast = float(np.std(gray))
-            self.imagesContrast.append(contrast)
 
     def generateContinuosPlots(self, dato, output_path, title):
         """Genera y guarda un gráfico de histograma con curva normal superpuesta."""
@@ -431,20 +451,6 @@ class EDA:
         fig.tight_layout()
         fig.savefig(output_path)
         plt.close(fig)
-
-    def analyzeDesenfoque(self):
-        """Realizacion de un analisis del desenfoque de las imagenes usando la varianza de Laplacian"""
-        if not self.images:
-            return # No hay imágenes para analizar
-
-        # Analizamos el desenfoque de cada imagen
-        for _, image in self.images:
-            # Convertimos la imagen a escala de grises
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-            # Calculamos la varianza de Laplacian para evaluar el desenfoque
-            blur_metric = cv2.Laplacian(gray, cv2.CV_64F).var()
-            self.imagesBlur.append(blur_metric)
 
     def saveResults(self, output_path):
         """Guarda los resultados del análisis en un archivo de texto."""
@@ -579,28 +585,3 @@ edaTrain.loadLabels(pathTrainLabels)
 
 print("Número de imágenes cargadas: (Train)", len(edaTrain.images))
 print("Número de etiquetas cargadas: (Train)", len(edaTrain.labelsMask))
-
-
-
-#Realizamos todas los analisis para el conjunto de entrenamiento
-edaTrain.analyzeTypeFiles()
-edaTrain.analyzeImageSizes()
-edaTrain.analyzeAspectRatio()
-edaTrain.analyzeLabelsSize()
-edaTrain.analyzePositionLabels()
-edaTrain.analyzeNumLabelsPerImage()
-edaTrain.analyzeLabelsAspectRatio()
-edaTrain.analyzeLabelsSolapamiento()
-edaTrain.analyzeBrightness()
-edaTrain.analyzeContrast()
-edaTrain.analyzeDesenfoque()
-edaTrain.generateDensityCenterPlot(os.path.join(OUTPUT_DIR, "train/density_center.png"))
-edaTrain.generateContinuosPlots(edaTrain.numLabelsPerImage, os.path.join(OUTPUT_DIR, "train/num_labels_per_image.png"), "Número de etiquetas por imagen")
-edaTrain.generateContinuosPlots(edaTrain.labelAreas, os.path.join(OUTPUT_DIR, "train/label_areas.png"), "Área relativa de etiquetas (% de imagen)")
-edaTrain.generateContinuosPlots(edaTrain.labelsUIO, os.path.join(OUTPUT_DIR, "train/labels_iou.png"), "Valores de IoU entre etiquetas")
-edaTrain.generateContinuosPlots(edaTrain.imagesBrightness, os.path.join(OUTPUT_DIR, "train/images_brightness.png"), "Brillo de imágenes")
-edaTrain.generateContinuosPlots(edaTrain.imagesContrast, os.path.join(OUTPUT_DIR, "train/images_contrast.png"), "Contraste de imágenes")
-edaTrain.generateContinuosPlots(edaTrain.imagesBlur, os.path.join(OUTPUT_DIR, "train/images_blur.png"), "Desenfoque de imágenes")
-
-#Guardamos los resultados del análisis en un archivo de texto
-edaTrain.saveResults(os.path.join(OUTPUT_DIR, "train/eda_results.txt"))
