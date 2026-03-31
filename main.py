@@ -24,6 +24,21 @@ logging.basicConfig(
     handlers=[logging.FileHandler(LOG_DIR / "api.log"), logging.StreamHandler()],
 )
 
+
+# Carga del archivo de configuración JSON y validación de su existencia y formato
+PATH_CONFIG = Path("config/config.json")
+if not PATH_CONFIG.is_file():
+    logging.error(f"Archivo de configuración no encontrado: {PATH_CONFIG}")
+    raise FileNotFoundError(f"Archivo de configuración no encontrado: {PATH_CONFIG}")
+
+try:
+    with open(PATH_CONFIG, "r", encoding="utf-8") as f:
+        config = json.load(f)
+    logging.info(f"Archivo de configuración cargado correctamente: {PATH_CONFIG}")
+except json.JSONDecodeError as e:
+    logging.error(f"Error al parsear el archivo de configuración: {e}")
+
+
 # Inicializacion de la aplicación FastAPI
 app = FastAPI(
     title="TFM API", description="API for YOLOv8 Object Detection", version="1.0.0"
@@ -32,9 +47,13 @@ app = FastAPI(
 
 # Creacion de clases para almacenar datos compartidos entre hilos y datos del proyecto
 sharedData = SharedData()
-projectData = ProjectData()
 
-# Endpoint raíz que redirige a la documentación automática de FastAPI
+SaveData = config.get("SaveData", {})
+projectData = ProjectData(SaveData.get("Logs", "logs/"), SaveData.get("Inference", "inference/"))
+
+#Creacion de la clase YOLO
+yoloConfig = config.get("Model", {})
+yoloModel = ClassYOLO(yoloConfig.get("Path"), yoloConfig.get("Device", "cpu"))
 
 
 @app.post("/stream/start")
