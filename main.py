@@ -3,9 +3,11 @@ import threading
 from pathlib import Path
 import json
 
+
 import uvicorn
-from fastapi import FastAPI, File, Query, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, RedirectResponse
+from starlette.background import BackgroundTask
 
 from core.procesorThread import processorThread
 from core.readerThread import readerThread
@@ -13,6 +15,11 @@ from data.projectData import ProjectData
 from data.sharedData import SharedData
 
 from utils.utils_mqtt import MQTTClient
+from utils.utils_yolo import ClassYOLO
+
+# Importar funciones auxiliares
+from utils.utils_aux import processImage, processVideo
+
 
 # Configuracion del logging para la API guardando en la carpeta logs
 LOG_DIR = Path("logs")
@@ -137,32 +144,44 @@ def stop_stream():
     return {"msg": "Detención del stream RTSP realizada correctamente"}
 
 
-@app.post("/predict/image")
-async def predict_image(
+@app.post("/predict/file")
+async def predict_file(
     file: UploadFile = File(...),
-    saveImage: bool = Query(False),
-    saveInference: bool = Query(False),
     confidenceClass0: float = 0.6,
 ):
     """
 
     Args:
         file (UploadFile): Archivo de imagen a procesar
-        saveImage (bool): Indica si se debe guardar la imagen con las detecciones superpuestas. Defaults False.
-        saveInference (bool): Indica si se deben guardar las inferencias (clases y coordenadas) en un archivo JSON. Defaults to False.
         confidenceClass0 (float): Umbral de confianza para la clase 0. Defaults to 0.6.
 
     Returns:
-            dict: Un diccionario con las detecciones realizadas en la imagen, incluyendo información de clase, coordenadas y confianza.
+            FileResponse: Descarga directa del archivo anotado, tanto para imagen como para video.
     """
 
-    # Lógica para procesar la imagen y realizar las predicciones (a implementar en la función real)
-    return {
-        "msg": "Predicciones realizadas en la imagen {}",
-        "saveImage": saveImage,
-        "saveInference": saveInference,
-        "confidenceClass0": confidenceClass0,
-    }
+    # Leer el contenido del archivo subido
+    contents = await file.read()
+
+    if file.content_type.startswith("image/"):
+        output_path, media_type = processImage(yoloModel, contents, confidenceClass0)
+        download_name = f"annotated_{Path(file.filename or 'image').stem}.jpg"
+    elif file.content_type.startswith("video/"):
+        output_path, media_type = processVideo(yoloModel, contents, confidenceClass0)
+        download_name = f"annotated_{Path(file.filename or 'video').stem}.mp4"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Tipo de archivo no soportado. Se esperaba una imagen o un video válido.",
+        )
+
+    await file.close()
+
+    return FileResponse(
+        path=output_path,
+        media_type=media_type,
+        filename=download_name,
+        background=BackgroundTask(output_path.unlink, missing_ok=True),
+    )
 
 
 @app.get("/health")
@@ -182,20 +201,6 @@ async def root():
 
 
 if __name__ == "__main__":
-
-    PATH_CONFIG = Path("config/config.json")
-    if not PATH_CONFIG.is_file():
-        logging.error(f"Archivo de configuración no encontrado: {PATH_CONFIG}")
-        raise FileNotFoundError(f"Archivo de configuración no encontrado: {PATH_CONFIG}")
-
-    try:
-        with open(PATH_CONFIG, "r", encoding="utf-8") as f:
-            config = json.load(f)
-        logging.info(f"Archivo de configuración cargado correctamente: {PATH_CONFIG}")
-    except json.JSONDecodeError as e:
-        logging.error(f"Error al parsear el archivo de configuración: {e}")
-        raise ValueError(f"Error al parsear el archivo de configuración: {e}")
-
     #Validacion de la IP y el puerto del broker MQTT
     APIconfig = config.get("API", {})
     APIIp = APIconfig.get("IP")
