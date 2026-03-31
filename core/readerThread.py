@@ -23,7 +23,7 @@ def readerThread(sharedData, projectData, rtspUrl):
     frame_counter = 0
 
     # Bucle externo de vida del hilo: solo reconecta cuando la conexión falla o termina.
-    while projectData.getReaderThreadRunning():
+    while projectData.readerProcessRunning():
         container = None
         try:
             # Conexión al stream RTSP usando PyAV con opciones para minimizar la latencia.
@@ -46,7 +46,7 @@ def readerThread(sharedData, projectData, rtspUrl):
 
             # Bucle interno de lectura: procesa frames mientras la conexión siga viva.
             for frame in container.decode(stream):  # type: ignore[attr-defined]
-                if not projectData.getReaderThreadRunning():
+                if not projectData.readerProcessRunning():
                     break
 
                 # Capturamos el frame junto con sus metadatos de sincronizacion nativos.
@@ -60,10 +60,10 @@ def readerThread(sharedData, projectData, rtspUrl):
                 frame_counter += 1
 
                 # Almacenamos el frame en sharedData.
-                sharedData.putFrame(package)
+                sharedData.frame_queue.put(package)
 
             # Si el decode termina sin excepción y el hilo sigue activo, forzamos reconexión.
-            if projectData.getReaderThreadRunning():
+            if projectData.readerProcessRunning():
                 logger.warning("RTSP stream ended, reconnecting...")
                 time.sleep(2)
 

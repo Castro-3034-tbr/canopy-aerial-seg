@@ -1,36 +1,28 @@
-import threading
 
+from types import SimpleNamespace
 
-class ProjectData:
-    """Estado compartido del proyecto y de ejecución de los hilos."""
+def initProjectData(manager, yoloPath: str, yoloDevice: str, savePathLogs: str, savePathInference: str) -> SimpleNamespace:
+    """Inicializa la clase ProjectData con las rutas de guardado de logs e inferencias.
+    Args:
+        manager: Instancia del Manager para crear un Namespace compartido entre procesos.
+        yoloPath (str): Ruta del modelo YOLO.
+        yoloDevice (str): Dispositivo para ejecutar el modelo YOLO.
+        savePathLogs (str): Ruta de guardado de logs.
+        savePathInference (str): Ruta de guardado de inferencias.
+    Returns:
+        Manager.Namespace: Instancia del namespace compartido entre procesos.
+    """
+    #Creacion del namespace para almacenar los datos del proyecto
+    projectData = manager.Namespace()
 
-    def __init__(self, savePathLogs: str, savePathInference: str):
-        self._reader_thread_running = False
-        self._processor_thread_running = False
-        self._save_path_logs = savePathLogs
-        self._save_path_inference = savePathInference
+    #Inicializacion de las variables del namespace
+    projectData.readerProcessRunning = False              # Flag para controlar la ejecución de los hilos de lectura y procesamiento
+    projectData.processorProcessRunning = False              # Flag para controlar la ejecución del hilo de procesamiento
 
+    projectData.savePathLogs = savePathLogs                 # Ruta de guardado de logs
+    projectData.savePathInference = savePathInference       # Ruta de guardado de inferencias
 
-    def setReaderThreadRunning(self, running: bool):
-        """Establece el estado del hilo de lectura."""
-        self._reader_thread_running = running
+    projectData.yoloPath = yoloPath                         # Ruta del modelo YOLO
+    projectData.yoloDevice = yoloDevice                     # Dispositivo para ejecutar el modelo YOLO
 
-    def setProcessorThreadRunning(self, running: bool):
-        """Establece el estado del hilo de procesamiento."""
-        self._processor_thread_running = running
-
-    def getReaderThreadRunning(self) -> bool:
-        """Obtiene el estado del hilo de lectura."""
-        return self._reader_thread_running
-
-    def getProcessorThreadRunning(self) -> bool:
-        """Obtiene el estado del hilo de procesamiento."""
-        return self._processor_thread_running
-
-    def getSavePathLogs(self) -> str:
-        """Obtiene la ruta de guardado de logs."""
-        return self._save_path_logs
-
-    def getSavePathInference(self) -> str:
-        """Obtiene la ruta de guardado de inferencias."""
-        return self._save_path_inference
+    return projectData

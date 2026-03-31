@@ -1,8 +1,9 @@
-import logging
-import threading
-from pathlib import Path
 import json
-
+import logging
+import multiprocessing
+import threading
+from multiprocessing import Manager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
@@ -11,15 +12,13 @@ from starlette.background import BackgroundTask
 
 from core.procesorThread import processorThread
 from core.readerThread import readerThread
-from data.projectData import ProjectData
-from data.sharedData import SharedData
-
-from utils.utils_mqtt import MQTTClient
-from utils.utils_yolo import ClassYOLO
+from data.projectData import initProjectData
+from data.sharedData import initSharedData
 
 # Importar funciones auxiliares
 from utils.utils_aux import processImage, processVideo
-
+from utils.utils_mqtt import MQTTClient
+from utils.utils_yolo import ClassYOLO
 
 # Configuracion del logging para la API guardando en la carpeta logs
 LOG_DIR = Path("logs")
@@ -52,14 +51,30 @@ app = FastAPI(
 )
 
 
-# Creacion de clases para almacenar datos compartidos entre hilos y datos del proyecto
-sharedData = SharedData()
+# Creación de manager para datos compartidos entre procesos
+manager = Manager()
+
+# Crear una cola compatible con multiprocessing para frames
+frame_queue = manager.Queue(maxsize=30)
+
+# Crear flags compartidos para el estado de los procesos
+reader_running = manager.Value("b", False)
+processor_running = manager.Value("b", False)
+
+# Instanciar SharedData y ProjectData usando los objetos compartidos
+sharedData = initSharedData(manager)
 
 SaveData = config.get("SaveData", {})
-projectData = ProjectData(SaveData.get("Logs", "logs/"), SaveData.get("Inference", "inference/"))
-
-#Creacion de la clase YOLO
 yoloConfig = config.get("Model", {})
+projectData = initProjectData(
+    manager,
+    yoloConfig.get("Path"),
+    yoloConfig.get("Device", "cpu"),
+    SaveData.get("Logs", "logs/"),
+    SaveData.get("Inference", "inference/"),
+)
+
+# Creacion de la clase YOLO
 yoloModel = ClassYOLO(yoloConfig.get("Path"), yoloConfig.get("Device", "cpu"))
 
 
@@ -90,26 +105,18 @@ def start_stream(
             dict: Un diccionario con un mensaje de inicio y la configuración utilizada para el stream
     """
 
-    #Creacion de la instancia del cliente MQTT para publicar las detecciones
-    mqttClient = MQTTClient(
-        clientID="TFM_API_Client",
-        broker=mqttBroker,
-        port=mqttPort,
-        topic=mqttTopic
-    )
-
     # Inicializacion de los dos hilos para lectura y procesamiento del stream RTSP (a implementar en la función real)
 
-    hiloReader = threading.Thread(
+    processReader = multiprocessing.Process(
         target=readerThread,
         args=(sharedData, projectData, rtspUrl),
-        name="HiloReader",
+        name="ProcesoReader",
         daemon=True,
     )
-    projectData.setReaderThreadRunning(True)
-    hiloReader.start()
+    projectData.readerProcessRunning = True
+    processReader.start()
 
-    hiloProcessor = threading.Thread(
+    processProcessor = multiprocessing.Process(
         target=processorThread,
         args=(
             sharedData,
@@ -117,14 +124,15 @@ def start_stream(
             saveLog,
             saveInference,
             confidenceClass,
-            mqttClient,
-            yoloModel
+            mqttBroker,
+            mqttPort,
+            mqttTopic,
         ),
-        name="HiloProcessor",
+        name="ProcesoProcessor",
         daemon=True,
     )
-    projectData.setProcessorThreadRunning(True)
-    hiloProcessor.start()
+    projectData.processorProcessRunning = True
+    processProcessor.start()
 
     return {
         "msg": "Inicio del stream {}",
@@ -138,8 +146,8 @@ def stop_stream():
     """Detiene el procesamiento del stream RTSP."""
 
     # Lógica para detener los hilos de lectura y procesamiento del stream RTSP (a implementar en la función real)
-    projectData.setReaderThreadRunning(False)
-    projectData.setProcessorThreadRunning(False)
+    projectData.readerProcessRunning = False
+    projectData.processorProcessRunning = False
 
     return {"msg": "Detención del stream RTSP realizada correctamente"}
 
@@ -201,12 +209,16 @@ async def root():
 
 
 if __name__ == "__main__":
-    #Validacion de la IP y el puerto del broker MQTT
+    # Validacion de la IP y el puerto del broker MQTT
     APIconfig = config.get("API", {})
     APIIp = APIconfig.get("IP")
     APIPort = APIconfig.get("PORT")
     if not APIIp or not APIPort:
-        logging.error("IP o puerto del broker MQTT no especificados en la configuración")
-        raise ValueError("IP o puerto del broker MQTT no especificados en la configuración")
+        logging.error(
+            "IP o puerto del broker MQTT no especificados en la configuración"
+        )
+        raise ValueError(
+            "IP o puerto del broker MQTT no especificados en la configuración"
+        )
 
     uvicorn.run(app, host=APIIp, port=APIPort)

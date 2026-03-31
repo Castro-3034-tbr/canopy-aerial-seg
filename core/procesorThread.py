@@ -3,14 +3,18 @@ Archivo que encapsula la logica de procesamiento del stream RTSP y publicación 
 para que se pueda ejecutar en tiempo real de forma asincrona y no bloquee la API.
 """
 
-import time
 import logging
+import time
 from pathlib import Path
 
 import cv2
 import pandas as pd
 
+from utils.utils_mqtt import MQTTClient
+from utils.utils_yolo import ClassYOLO
+
 logger = logging.getLogger(__name__)
+
 
 def processorThread(
     sharedData,
@@ -18,15 +22,26 @@ def processorThread(
     saveLog,
     saveInference,
     confidenceClass,
-    mqttClient,
-    classYolo
+    mqttBroker,
+    mqttPort,
+    mqttTopic,
 ):
     """Función que se ejecuta en un hilo separado para procesar el stream RTSP y publicar los resultados en MQTT."""
 
+    # Creacion de la clase YOLO
+    yoloModel = ClassYOLO(projectData.yoloPath, projectData.yoloDevice)
+    # Creacion de la clase MQTT
+    mqttClient = MQTTClient(
+        clientID="processorThread",
+        broker=mqttBroker,
+        port=mqttPort,
+        topic=mqttTopic,
+    )
+
     # Obtenemos el directorio del proyecto para guardar los logs y las inferencias.
     project_root = Path(__file__).resolve().parents[1]
-    logs_dir = project_root / projectData.getSavePathLogs()
-    inference_dir = project_root / projectData.getSavePathInference()
+    logs_dir = project_root / projectData.savePathLogs
+    inference_dir = project_root / projectData.savePathInference
 
     log_csv = None
     if saveLog:
@@ -41,9 +56,9 @@ def processorThread(
         inference_dir.mkdir(parents=True, exist_ok=True)
 
     # Bucle de procesamiento.
-    while projectData.getProcessorThreadRunning():
+    while projectData.processorProcessRunning:
         # Intentamos obtener un frame del sharedData con un timeout para evitar bloqueos indefinidos.
-        package = sharedData.getFrame(timeout=1)
+        package = sharedData.frame_queue.get(timeout=1)
         if package is None:
             continue
 
@@ -51,10 +66,10 @@ def processorThread(
         frame_id = package["frame_id"]
 
         # Realizamos la deteccion con el modelo YOLO y obtenemos los resultados.
-        yolo_results = classYolo.predict(frame)
+        yolo_results = yoloModel.predict(frame)
 
         # Obtenemos los resultados en formato serializable.
-        detections = classYolo.extractDetections(
+        detections = yoloModel.extractDetections(
             yolo_results,
             confidence_threshold=confidenceClass,
         )
@@ -65,7 +80,8 @@ def processorThread(
         # Guardamos los logs de detección en el CSV si se ha solicitado.
         if saveLog and log_csv is not None:
             timestamp = time.time()
-            rows = [{
+            rows = [
+                {
                     "timestamp": timestamp,
                     "frame_id": frame_id,
                     "class": str(detection["class_id"]),
@@ -80,7 +96,7 @@ def processorThread(
 
         # Guardamos las inferencias (clases y coordenadas) en un archivo JSON si se ha solicitado.
         if saveInference:
-            annotated_frame = classYolo.drawResults(frame, yolo_results)
+            annotated_frame = yoloModel.drawResults(frame, yolo_results)
             image_path = inference_dir / f"frame_{frame_id}.jpg"
             if not cv2.imwrite(str(image_path), annotated_frame):
                 logger.warning("No se pudo guardar la inferencia en %s", image_path)
