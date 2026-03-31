@@ -12,29 +12,6 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-def _appendDetectionsToLog(log_csv: Path, frame_id: int, detections: list[dict]) -> None:
-    """Añade las detecciones del frame al CSV de log.
-    Args:
-        log_csv (Path): Ruta del archivo CSV de log.
-        frame_id (int): ID del frame procesado.
-        detections (list[dict]): Lista de detecciones a añadir al log.
-    """
-    timestamp = time.time()
-    rows = [
-        {
-            "timestamp": timestamp,
-            "frame_id": frame_id,
-            "class": str(detection["class_id"]),
-            "confidence": str(detection["confidence"]),
-            "bbox": str(detection["bbox"]),
-            "mask": "present" if detection["mask"] is not None else "None",
-        }
-        for detection in detections
-    ]
-    if rows:
-        pd.DataFrame(rows).to_csv(log_csv, mode="a", header=False, index=False)
-
-
 def processorThread(
     sharedData,
     projectData,
@@ -53,7 +30,12 @@ def processorThread(
 
     log_csv = None
     if saveLog:
-        log_csv = _initializeLogFile(logs_dir)
+        log_csv = logs_dir / f"detections_log_{int(time.time())}.csv"
+        if not log_csv.exists():
+            log_csv.parent.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                columns=["timestamp", "frame_id", "class", "confidence", "bbox", "mask"]
+            ).to_csv(log_csv, index=False)
 
     if saveInference:
         inference_dir.mkdir(parents=True, exist_ok=True)
@@ -82,7 +64,19 @@ def processorThread(
 
         # Guardamos los logs de detección en el CSV si se ha solicitado.
         if saveLog and log_csv is not None:
-            _appendDetectionsToLog(log_csv, frame_id, detections)
+            timestamp = time.time()
+            rows = [{
+                    "timestamp": timestamp,
+                    "frame_id": frame_id,
+                    "class": str(detection["class_id"]),
+                    "confidence": str(detection["confidence"]),
+                    "bbox": str(detection["bbox"]),
+                    "mask": "present" if detection["mask"] is not None else "None",
+                }
+                for detection in detections
+            ]
+            if rows:
+                pd.DataFrame(rows).to_csv(log_csv, mode="a", header=False, index=False)
 
         # Guardamos las inferencias (clases y coordenadas) en un archivo JSON si se ha solicitado.
         if saveInference:
