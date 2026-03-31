@@ -110,7 +110,8 @@ def start_stream(
             saveLog,
             saveInference,
             confidenceClass,
-            mqttClient
+            mqttClient,
+            yoloModel
         ),
         name="HiloProcessor",
         daemon=True,

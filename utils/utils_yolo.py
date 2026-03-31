@@ -22,13 +22,14 @@ class ClassYOLO:
         self.model = ultralytics.YOLO(model_path)
         self.model.to(device)
 
-    def predict(self, frame: np.ndarray, debug: bool = False):
+    def predict(self, frame: np.ndarray, confidence_threshold: float = 0.0, debug: bool = False):
         """Ejecuta inferencia sobre un frame BGR.
         Args:
             frame (np.ndarray): Imagen en formato BGR sobre la que se realizará la inferencia
+            confidence_threshold (float, optional): Umbral de confianza para filtrar detecciones. Defaults to 0.0.
             debug (bool, optional): Si se desea mostrar información de depuración. Defaults to False.
         """
-        return self.model(frame, verbose=debug)
+        return self.model(frame, conf=confidence_threshold, verbose=debug)
 
     def extractDetections(
         self,
@@ -98,6 +99,9 @@ class ClassYOLO:
         annotated_frame = frame.copy()
 
         for mask in masks:
+            # Redimensionar la máscara si es necesario
+            if mask.shape != annotated_frame.shape[:2]:
+                mask = cv2.resize(mask, (annotated_frame.shape[1], annotated_frame.shape[0]), interpolation=cv2.INTER_NEAREST)
             #Calculamos el centroide de la mascara y dibujamos un circulo rojo en esa posicion
             centroid = self.calculateCentroid(mask)
             colored_mask = np.zeros_like(annotated_frame)

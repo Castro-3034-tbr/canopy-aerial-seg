@@ -1,5 +1,5 @@
 import queue
-import threading
+from typing import Any
 
 
 class SharedData:
@@ -8,33 +8,52 @@ class SharedData:
     para evitar problemas de concurrencia y facilitar la comunicación entre ellos.
     """
 
-    def __init__(self, max_queue_size=30):
-        self.frame_queue = queue.Queue(maxsize=max_queue_size)
-        self.queue_lock = threading.Lock()
+    def __init__(self, max_queueSize: int = 30):
+        """Inicializa la instancia de SharedData con una cola de frames y un lock para sincronización.
 
-    def put_frame(self, package):
-        """Almacena un frame en la cola."""
+        Args:
+            max_queueSize (int): Tamaño máximo de la cola de frames. Defaults to 30.
+        """
+        self._frame_queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=max_queueSize)
+
+    def putFrame(self, package: dict[str, Any]) -> None:
+        """Almacena un frame en la cola.
+        Si la cola está llena, elimina el frame más antiguo antes de agregar el nuevo para evitar bloqueos.
+        Args:
+            package (dict): Diccionario que contiene el frame y sus metadatos.
+        """
         try:
-            if self.frame_queue.full():
+            if self._frame_queue.full():
                 try:
-                    self.frame_queue.get_nowait()
+                    self._frame_queue.get_nowait()
                 except queue.Empty:
                     pass
-            self.frame_queue.put(package)
+            self._frame_queue.put_nowait(package)
         except Exception as e:
             raise Exception(f"Error al almacenar frame en sharedData: {e}")
 
-    def get_frame(self, timeout=1):
-        """Obtiene un frame de la cola."""
+    def getFrame(self, timeout: int = 1) -> dict[str, Any] | None:
+        """Obtiene un frame de la cola.
+        Args:
+            timeout (int): Tiempo máximo en segundos para esperar un frame antes de devolver None. Defaults to 1.
+        Returns:
+        dict | None: Diccionario con el frame y sus metadatos, o None si no se pudo obtener un frame en el tiempo especificado.
+        """
         try:
-            return self.frame_queue.get(timeout=timeout)
+            return self._frame_queue.get(timeout=timeout)
         except queue.Empty:
             return None
 
-    def is_queue_empty(self):
-        """Comprueba si la cola está vacía."""
-        return self.frame_queue.empty()
+    def isQueueEmpty(self) -> bool:
+        """Comprueba si la cola está vacía.
+        Returns:
+            bool: True si la cola está vacía, False en caso contrario.
+        """
+        return self._frame_queue.empty()
 
-    def queue_size(self):
-        """Obtiene el tamaño actual de la cola."""
-        return self.frame_queue.qsize()
+    def queueSize(self) -> int:
+        """Obtiene el tamaño actual de la cola.
+        Returns:
+            int: Tamaño de la cola.
+        """
+        return self._frame_queue.qsize()

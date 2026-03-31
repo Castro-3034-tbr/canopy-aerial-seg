@@ -2,37 +2,35 @@ import threading
 
 
 class ProjectData:
-    """
-    Clase que encapsula la información del proyecto, como el nombre del proyecto, la descripción, el autor, etc.
-    """
+    """Estado compartido del proyecto y de ejecución de los hilos."""
 
-    def __init__(self):
+    def __init__(self, savePathLogs: str, savePathInference: str):
+        self._reader_thread_running = False
+        self._processor_thread_running = False
+        self._save_path_logs = savePathLogs
+        self._save_path_inference = savePathInference
 
-        self.readerThreadRunning = (
-            False  # Variable para controlar el estado del hilo de lectura
-        )
-        self.processorThreadRunning = (
-            False  # Variable para controlar el estado del hilo de procesamiento
-        )
-
-        self.threadStateLock = threading.Lock()
 
     def setReaderThreadRunning(self, running: bool):
         """Establece el estado del hilo de lectura."""
-        with self.threadStateLock:
-            self.readerThreadRunning = running
+        self._reader_thread_running = running
 
     def setProcessorThreadRunning(self, running: bool):
         """Establece el estado del hilo de procesamiento."""
-        with self.threadStateLock:
-            self.processorThreadRunning = running
+        self._processor_thread_running = running
 
     def getReaderThreadRunning(self) -> bool:
         """Obtiene el estado del hilo de lectura."""
-        with self.threadStateLock:
-            return self.readerThreadRunning
+        return self._reader_thread_running
 
     def getProcessorThreadRunning(self) -> bool:
         """Obtiene el estado del hilo de procesamiento."""
-        with self.threadStateLock:
-            return self.processorThreadRunning
+        return self._processor_thread_running
+
+    def getSavePathLogs(self) -> str:
+        """Obtiene la ruta de guardado de logs."""
+        return self._save_path_logs
+
+    def getSavePathInference(self) -> str:
+        """Obtiene la ruta de guardado de inferencias."""
+        return self._save_path_inference

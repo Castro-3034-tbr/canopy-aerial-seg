@@ -3,10 +3,36 @@ Archivo que encapsula la logica de procesamiento del stream RTSP y publicación 
 para que se pueda ejecutar en tiempo real de forma asincrona y no bloquee la API.
 """
 
-import pandas as pd
 import time
-import cv2
+import logging
 from pathlib import Path
+
+import cv2
+import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+def _appendDetectionsToLog(log_csv: Path, frame_id: int, detections: list[dict]) -> None:
+    """Añade las detecciones del frame al CSV de log.
+    Args:
+        log_csv (Path): Ruta del archivo CSV de log.
+        frame_id (int): ID del frame procesado.
+        detections (list[dict]): Lista de detecciones a añadir al log.
+    """
+    timestamp = time.time()
+    rows = [
+        {
+            "timestamp": timestamp,
+            "frame_id": frame_id,
+            "class": str(detection["class_id"]),
+            "confidence": str(detection["confidence"]),
+            "bbox": str(detection["bbox"]),
+            "mask": "present" if detection["mask"] is not None else "None",
+        }
+        for detection in detections
+    ]
+    if rows:
+        pd.DataFrame(rows).to_csv(log_csv, mode="a", header=False, index=False)
 
 
 def processorThread(
@@ -20,56 +46,47 @@ def processorThread(
 ):
     """Función que se ejecuta en un hilo separado para procesar el stream RTSP y publicar los resultados en MQTT."""
 
-    #Obtenemos el directorio del proyecto para guardar los logs y las inferencias
+    # Obtenemos el directorio del proyecto para guardar los logs y las inferencias.
     project_root = Path(__file__).resolve().parents[1]
-    logs_dir = project_root / "logs"
-    inference_dir = project_root / "inference"
-    
-    logCSV = None
+    logs_dir = project_root / projectData.getSavePathLogs()
+    inference_dir = project_root / projectData.getSavePathInference()
+
+    log_csv = None
     if saveLog:
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        #Creacion del archivo csv de log para este hilo
-        logCSV = logs_dir / f"log_{int(time.time())}.csv"
-        dfLog = pd.DataFrame(columns=["timestamp", "frame_id", "class", "confidence", "bbox", "mask"])
-        dfLog.to_csv(logCSV, index=False)
+        log_csv = _initializeLogFile(logs_dir)
 
     if saveInference:
         inference_dir.mkdir(parents=True, exist_ok=True)
 
-    #Bucle de procesamiento
+    # Bucle de procesamiento.
     while projectData.getProcessorThreadRunning():
+        # Intentamos obtener un frame del sharedData con un timeout para evitar bloqueos indefinidos.
+        package = sharedData.getFrame(timeout=1)
+        if package is None:
+            continue
 
-        # Intentamos obtener un frame del sharedData con un timeout para evitar bloqueos indefinidos
-        package = sharedData.get_frame(timeout=1)
         frame = package["img"]
         frame_id = package["frame_id"]
 
-        #Realizamos la deteccion con el modelo YOLO y obtenemos los resultados
+        # Realizamos la deteccion con el modelo YOLO y obtenemos los resultados.
         yolo_results = classYolo.predict(frame)
 
-        #Obtenemos los resultados en formato serializable
-        detections = classYolo.extractDetections(yolo_results, confidence_threshold=confidenceClass)
+        # Obtenemos los resultados en formato serializable.
+        detections = classYolo.extractDetections(
+            yolo_results,
+            confidence_threshold=confidenceClass,
+        )
 
-        #Logica de publicacion de resultados en MQTT
+        # Publicamos los resultados en MQTT.
         mqttClient.publish(detections)
 
-        #Escribimos el frame procesado
-        if saveLog:
-            #Obtenemos el timestamp actual
-            timestamp = time.time()
-            for detection in detections:
-                dfLog = pd.DataFrame([{
-                    "timestamp": timestamp,
-                    "frame_id": frame_id,
-                    "class": str(detection["class_id"]),
-                    "confidence": str(detection["confidence"]),
-                    "bbox": str(detection["bbox"]),
-                    "mask": "present" if detection["mask"] is not None else "None"
-                }])
-                dfLog.to_csv(logCSV, mode='a', header=False, index=False)
+        # Guardamos los logs de detección en el CSV si se ha solicitado.
+        if saveLog and log_csv is not None:
+            _appendDetectionsToLog(log_csv, frame_id, detections)
 
-
+        # Guardamos las inferencias (clases y coordenadas) en un archivo JSON si se ha solicitado.
         if saveInference:
-            #Guardamos el frame con las detecciones dibujadas
             annotated_frame = classYolo.drawResults(frame, yolo_results)
-            cv2.imwrite(str(inference_dir / f"frame_{frame_id}.jpg"), annotated_frame)
+            image_path = inference_dir / f"frame_{frame_id}.jpg"
+            if not cv2.imwrite(str(image_path), annotated_frame):
+                logger.warning("No se pudo guardar la inferencia en %s", image_path)
