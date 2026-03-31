@@ -6,3 +6,5 @@ data/__pycache__/
 logs/
 models/
 utils/__pycache__/
+tests/**
+__pycache__/
