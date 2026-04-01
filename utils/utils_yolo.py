@@ -31,6 +31,28 @@ class ClassYOLO:
         """
         return self.model(frame, conf=confidence_threshold, verbose=debug)
 
+    def extractVertices(self, mask: np.ndarray) -> np.ndarray:
+        """Aplica el algoritmo de Canny para obtener las coordenadas de los vértices de los bordes.
+        Args:
+            mask (np.ndarray): Máscara binaria.
+        Returns:
+            np.ndarray: Coordenadas de los vértices de los bordes."""
+
+        #Extracion de los contornos de la mascara utilizando el algoritmo de Canny
+        contours, _ = cv2.findContours(
+        mask.astype(np.uint8),
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+        if not contours:
+            return np.array([])  # Retorna un array vacío si no se encontraron contornos
+
+        # Elegir el contorno más grande
+        contour = max(contours, key=cv2.contourArea)
+
+        return contour.squeeze()
+
     def extractDetections(
         self,
         results,
@@ -50,6 +72,7 @@ class ClassYOLO:
                 "confidence": None,
                 "bbox": None,
                 "mask": None,
+                "vertices": None,
                 "centroid": None
             }]
 
@@ -70,12 +93,17 @@ class ClassYOLO:
             #Obtenemos los vertices de la mascara si esta presente
             mask = masks[index] if masks is not None else None
             centroid = self.calculateCentroid(mask) if mask is not None else None
+
+            #Calculamos el vertice de la mascara utilizando el algoritmo de Canny
+            vertices = self.extractVertices(mask) if mask is not None else None
+
             detections.append(
                 {
                     "class_id": class_idx,
                     "confidence": confidence,
                     "bbox": boxes[index].tolist(),
                     "mask": mask,
+                    "vertices": vertices,
                     "centroid": centroid
                 }
             )
