@@ -17,7 +17,7 @@ def processImage(yoloModel, contents: bytes, confidence_threshold: float) -> tup
     
     #Dibujamos los resultados en la imagen
     annotated_frame = yoloModel.drawResults(frame, results)
-    
+
     #Guardamos la imagen anotada en un archivo temporal
     with NamedTemporaryFile(delete=False, suffix=".jpg") as output_file:
         output_path = Path(output_file.name)

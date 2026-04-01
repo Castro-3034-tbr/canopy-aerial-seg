@@ -10,7 +10,7 @@ import time
 logger = logging.getLogger(__name__)
 
 
-def readerThread(sharedData, projectData, rtspUrl):
+def readerProcess(sharedData, projectData, rtspUrl):
     """ Hilo encargado de leer el stream RTSP usando PyAV, procesar los frames y almacenarlos en sharedData para que el hilo de inferencia los consuma.
 
     Args:
@@ -23,7 +23,7 @@ def readerThread(sharedData, projectData, rtspUrl):
     frame_counter = 0
 
     # Bucle externo de vida del hilo: solo reconecta cuando la conexión falla o termina.
-    while projectData.readerProcessRunning():
+    while projectData.readerProcessRunning:
         container = None
         try:
             # Conexión al stream RTSP usando PyAV con opciones para minimizar la latencia.
@@ -46,7 +46,7 @@ def readerThread(sharedData, projectData, rtspUrl):
 
             # Bucle interno de lectura: procesa frames mientras la conexión siga viva.
             for frame in container.decode(stream):  # type: ignore[attr-defined]
-                if not projectData.readerProcessRunning():
+                if not projectData.readerProcessRunning:
                     break
 
                 # Capturamos el frame junto con sus metadatos de sincronizacion nativos.
@@ -63,7 +63,7 @@ def readerThread(sharedData, projectData, rtspUrl):
                 sharedData.frame_queue.put(package)
 
             # Si el decode termina sin excepción y el hilo sigue activo, forzamos reconexión.
-            if projectData.readerProcessRunning():
+            if projectData.readerProcessRunning:
                 logger.warning("RTSP stream ended, reconnecting...")
                 time.sleep(2)
 

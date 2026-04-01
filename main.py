@@ -9,8 +9,8 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
-from core.procesorThread import processorThread
-from core.readerThread import readerThread
+from core.procesorProcess import processorProcess
+from core.readerProcess import readerProcess
 from data.projectData import initProjectData
 from data.sharedData import initSharedData
 
@@ -113,7 +113,7 @@ def start_stream(
 
     # Inicialización de los procesos de lectura y procesamiento del stream RTSP
     processReader = multiprocessing.Process(
-        target=readerThread,
+        target=readerProcess,
         args=(sharedData, projectData, rtspUrl),
         name="ProcesoReader",
         daemon=True,
@@ -122,7 +122,7 @@ def start_stream(
     processReader.start()
 
     processProcessor = multiprocessing.Process(
-        target=processorThread,
+        target=processorProcess,
         args=(
             sharedData,
             projectData,

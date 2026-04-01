@@ -16,7 +16,7 @@ from utils.utils_yolo import ClassYOLO
 logger = logging.getLogger(__name__)
 
 
-def processorThread(
+def processorProcess(
     sharedData,
     projectData,
     saveLog,
@@ -32,7 +32,7 @@ def processorThread(
     yoloModel = ClassYOLO(projectData.yoloPath, projectData.yoloDevice)
     # Creacion de la clase MQTT
     mqttClient = MQTTClient(
-        clientID="processorThread",
+        clientID="processorProcess",
         broker=mqttBroker,
         port=mqttPort,
         topic=mqttTopic,
