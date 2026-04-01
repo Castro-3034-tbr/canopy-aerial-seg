@@ -1,6 +1,5 @@
 import json
 import logging
-import multiprocessing
 from multiprocessing import Manager
 from pathlib import Path
 
@@ -9,10 +8,7 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
-from core.procesorProcess import processorProcess
-from core.readerProcess import readerProcess
-from data.projectData import initProjectData
-from data.sharedData import initSharedData
+from services.streamManager import StreamManager
 
 # Importar funciones auxiliares
 from utils.utils_aux import processImage, processVideo
@@ -56,16 +52,6 @@ app = FastAPI(
 # Creación de manager para datos compartidos entre procesos
 manager = Manager()
 
-# Crear una cola compatible con multiprocessing para frames
-frame_queue = manager.Queue(maxsize=30)
-
-# Crear flags compartidos para el estado de los procesos
-reader_running = manager.Value("b", False)
-processor_running = manager.Value("b", False)
-
-# Instanciar SharedData y ProjectData usando los objetos compartidos
-sharedData = initSharedData(manager)
-
 savePath = config.get("SavePath", {})
 if len(savePath) == 0:
     logging.warning("Sección 'SavePath' no encontrada en la configuración")
@@ -73,19 +59,16 @@ yoloConfig = config.get("Model", {})
 if len(yoloConfig) == 0:
     logging.warning("Sección 'Model' no encontrada en la configuración")
 
-projectData = initProjectData(
-    manager,
-    yoloConfig.get("Path"),
-    yoloConfig.get("Device", "cpu"),
-    savePath.get("Logs", "logs/"),
-    savePath.get("Inference", "inference/"),
-)
-
 # Creacion de la clase YOLO
 yoloModel = ClassYOLO(yoloConfig.get("Path"), yoloConfig.get("Device", "cpu"))
+stream_manager = StreamManager(manager=manager, model_config=yoloConfig, save_path_config=savePath)
 
 @app.post("/stream/start")
 def start_stream(
+    streamId: str | None = Query(
+        None,
+        description="Identificador único del stream. Si no se envía, se genera automáticamente.",
+    ),
     rtspUrl: str = Query(..., description="RTSP URL of the video stream"),
     saveLog: bool = Query(False),
     saveInference: bool = Query(False),
@@ -111,50 +94,27 @@ def start_stream(
             dict: Un diccionario con un mensaje de inicio y la configuración utilizada para el stream
     """
 
-    # Inicialización de los procesos de lectura y procesamiento del stream RTSP
-    processReader = multiprocessing.Process(
-        target=readerProcess,
-        args=(sharedData, projectData, rtspUrl),
-        name="ProcesoReader",
-        daemon=True,
+    return stream_manager.start(
+        stream_id=streamId,
+        rtsp_url=rtspUrl,
+        save_log=saveLog,
+        save_inference=saveInference,
+        confidence_class=confidenceClass,
+        mqtt_broker=mqttBroker,
+        mqtt_port=mqttPort,
+        mqtt_topic=mqttTopic,
     )
-    projectData.readerProcessRunning = True
-    processReader.start()
-
-    processProcessor = multiprocessing.Process(
-        target=processorProcess,
-        args=(
-            sharedData,
-            projectData,
-            saveLog,
-            saveInference,
-            confidenceClass,
-            mqttBroker,
-            mqttPort,
-            mqttTopic,
-        ),
-        name="ProcesoProcessor",
-        daemon=True,
-    )
-    projectData.processorProcessRunning = True
-    processProcessor.start()
-
-    return {
-        "msg": "Inicio del stream {}",
-        "rtspUrl": rtspUrl,
-        "mqtt": {"broker": mqttBroker, "port": mqttPort, "topic": mqttTopic},
-    }
 
 
 @app.post("/stream/stop")
-def stop_stream():
-    """Detiene el procesamiento del stream RTSP."""
-
-    # Lógica para detener los procesos de lectura y procesamiento del stream RTSP (a implementar en la función real)
-    projectData.readerProcessRunning = False
-    projectData.processorProcessRunning = False
-
-    return {"msg": "Detención del stream RTSP realizada correctamente"}
+def stop_stream(
+    streamId: str | None = Query(
+        None,
+        description="Si se indica, detiene solo ese stream. Si no, detiene todos.",
+    )
+):
+    """Detiene uno o todos los streams RTSP activos."""
+    return stream_manager.stop(stream_id=streamId)
 
 
 @app.post("/predict/file")
@@ -205,7 +165,7 @@ def health():
     Returns:
         dict: Un diccionario con el estado de la API.
     """
-    return {"msg": "API esta funcionando correctamente"}
+    return {"msg": "API esta funcionando correctamente", "stream": stream_manager.health()}
 
 
 @app.get("/")
