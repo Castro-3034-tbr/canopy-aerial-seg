@@ -1,7 +1,6 @@
 import json
 import logging
 import multiprocessing
-import threading
 from multiprocessing import Manager
 from pathlib import Path
 
@@ -17,7 +16,6 @@ from data.sharedData import initSharedData
 
 # Importar funciones auxiliares
 from utils.utils_aux import processImage, processVideo
-from utils.utils_mqtt import MQTTClient
 from utils.utils_yolo import ClassYOLO
 
 # Configuracion del logging para la API guardando en la carpeta logs
@@ -38,18 +36,22 @@ if not PATH_CONFIG.is_file():
     raise FileNotFoundError(f"Archivo de configuración no encontrado: {PATH_CONFIG}")
 
 try:
+    config = {}
     with open(PATH_CONFIG, "r", encoding="utf-8") as f:
         config = json.load(f)
+        if config is None or not isinstance(config, dict):
+            logging.error("Formato de configuración inválido: se esperaba un objeto JSON")
+            raise ValueError("Formato de configuración inválido: se esperaba un objeto JSON")
     logging.info(f"Archivo de configuración cargado correctamente: {PATH_CONFIG}")
 except json.JSONDecodeError as e:
     logging.error(f"Error al parsear el archivo de configuración: {e}")
+    raise ValueError(f"Error al parsear el archivo de configuración: {e}") from e
 
 
 # Inicializacion de la aplicación FastAPI
 app = FastAPI(
     title="TFM API", description="API for YOLOv8 Object Detection", version="1.0.0"
 )
-
 
 # Creación de manager para datos compartidos entre procesos
 manager = Manager()
@@ -64,19 +66,23 @@ processor_running = manager.Value("b", False)
 # Instanciar SharedData y ProjectData usando los objetos compartidos
 sharedData = initSharedData(manager)
 
-SaveData = config.get("SaveData", {})
+savePath = config.get("SavePath", {})
+if len(savePath) == 0:
+    logging.warning("Sección 'SavePath' no encontrada en la configuración")
 yoloConfig = config.get("Model", {})
+if len(yoloConfig) == 0:
+    logging.warning("Sección 'Model' no encontrada en la configuración")
+
 projectData = initProjectData(
     manager,
     yoloConfig.get("Path"),
     yoloConfig.get("Device", "cpu"),
-    SaveData.get("Logs", "logs/"),
-    SaveData.get("Inference", "inference/"),
+    savePath.get("Logs", "logs/"),
+    savePath.get("Inference", "inference/"),
 )
 
 # Creacion de la clase YOLO
 yoloModel = ClassYOLO(yoloConfig.get("Path"), yoloConfig.get("Device", "cpu"))
-
 
 @app.post("/stream/start")
 def start_stream(
@@ -105,8 +111,7 @@ def start_stream(
             dict: Un diccionario con un mensaje de inicio y la configuración utilizada para el stream
     """
 
-    # Inicializacion de los dos hilos para lectura y procesamiento del stream RTSP (a implementar en la función real)
-
+    # Inicialización de los procesos de lectura y procesamiento del stream RTSP
     processReader = multiprocessing.Process(
         target=readerThread,
         args=(sharedData, projectData, rtspUrl),
@@ -145,7 +150,7 @@ def start_stream(
 def stop_stream():
     """Detiene el procesamiento del stream RTSP."""
 
-    # Lógica para detener los hilos de lectura y procesamiento del stream RTSP (a implementar en la función real)
+    # Lógica para detener los procesos de lectura y procesamiento del stream RTSP (a implementar en la función real)
     projectData.readerProcessRunning = False
     projectData.processorProcessRunning = False
 

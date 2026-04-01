@@ -1,4 +1,4 @@
-from typing import SimpleNamespace
+from types import SimpleNamespace
 
 def initSharedData(manager, max_queueSize: int = 30) -> SimpleNamespace:
     """Inicializa la clase SharedData para compartir datos entre los hilos de lectura y procesamiento.
