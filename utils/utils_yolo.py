@@ -22,13 +22,13 @@ class ClassYOLO:
         self.model = ultralytics.YOLO(model_path)
         self.model.to(device)
 
-    def predict(self, frame: np.ndarray, confidence_threshold: float = 0.0, debug: bool = False):
-        """Ejecuta inferencia sobre un frame BGR.
-        Args:
-            frame (np.ndarray): Imagen en formato BGR sobre la que se realizará la inferencia
-            confidence_threshold (float, optional): Umbral de confianza para filtrar detecciones. Defaults to 0.0.
-            debug (bool, optional): Si se desea mostrar información de depuración. Defaults to False.
-        """
+    def predict(
+        self,
+        frame: np.ndarray,
+        confidence_threshold: float = 0.0,
+        debug: bool = False,
+    ):
+        """Ejecuta inferencia sobre un frame BGR."""
         return self.model(frame, conf=confidence_threshold, verbose=debug)
 
     def extractVertices(self, mask: np.ndarray) -> np.ndarray:
@@ -44,9 +44,9 @@ class ClassYOLO:
         cv2.RETR_EXTERNAL,
         cv2.CHAIN_APPROX_SIMPLE
     )
-
+        #Si no se encuentran contornos, se devuelve un array vacío
         if not contours:
-            return np.array([])  # Retorna un array vacío si no se encontraron contornos
+            return np.array([])
 
         # Elegir el contorno más grande
         contour = max(contours, key=cv2.contourArea)
@@ -67,20 +67,13 @@ class ClassYOLO:
         """
         result = results[0]
         if result.boxes is None or len(result.boxes) == 0:
-            return [{
-                "class_id": None,
-                "confidence": None,
-                "bbox": None,
-                "mask": None,
-                "vertices": None,
-                "centroid": None
-            }]
+            return []
 
         #Obtenemos los elementos de las detecciones
         boxes = result.boxes.xyxy.cpu().numpy()
         classes = result.boxes.cls.cpu().numpy()
         confidences = result.boxes.conf.cpu().numpy()
-        masks = result.masks.data.cpu().numpy() if result.masks is not None else None
+        masks = result.masks.data.cpu().numpy() if result.masks is not None else []
 
         #Construimos la lista de detecciones filtrando por el umbral de confianza
         detections: list[dict[str, Any]] = []
@@ -91,22 +84,26 @@ class ClassYOLO:
 
             class_idx = int(class_id)
             #Obtenemos los vertices de la mascara si esta presente
-            mask = masks[index] if masks is not None else None
-            centroid = self.calculateCentroid(mask) if mask is not None else None
+            mask_arr = masks[index] if index < len(masks) else None
+            centroid = self.calculateCentroid(mask_arr) if mask_arr is not None else None
 
             #Calculamos el vertice de la mascara utilizando el algoritmo de Canny
-            vertices = self.extractVertices(mask) if mask is not None else None
+            vertices = self.extractVertices(mask_arr).tolist() if mask_arr is not None else []
 
             detections.append(
                 {
                     "class_id": class_idx,
                     "confidence": confidence,
                     "bbox": boxes[index].tolist(),
-                    "mask": mask,
+                    "mask": mask_arr.tolist() if isinstance(mask_arr, np.ndarray) else [],
                     "vertices": vertices,
-                    "centroid": centroid
+                    "centroid": list(centroid) if centroid is not None else [],
                 }
             )
+
+        #Si no hay detecciones que superen el umbral de confianza, se devuelve una lista vacía
+        if not detections:
+            return []
 
         return detections
 
@@ -119,7 +116,7 @@ class ClassYOLO:
             np.ndarray: Imagen con las mascaras y centroides dibujados.
             Si no hay mascaras, se devuelve una copia del frame original."""
         result = results[0]
-        if result.masks is None:
+        if result.masks is None or len(result.masks.data) == 0:
             return frame.copy()
 
         #Obtenemos la mascara formato de pixel a pixel y la dibujamos sobre el frame
