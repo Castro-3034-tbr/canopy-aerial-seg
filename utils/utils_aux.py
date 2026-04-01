@@ -83,7 +83,7 @@ def processVideo(yoloModel,contents: bytes, confidence_threshold: float) -> tupl
             if not success:
                 break
             #Realizamos la predicción y anotamos el frame
-            results = yoloModel.predict(frame)
+            results = yoloModel.predict(frame, confidence_threshold)
             annotated_frame = yoloModel.drawResults(frame, results)
             writer.write(annotated_frame)
     finally:
