@@ -1,4 +1,4 @@
-api/
+api/__pycache__/
 .trunk/
 core/__pycache__/
 config/__pycache__/
