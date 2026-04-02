@@ -36,7 +36,7 @@ def process_image(
     Returns:
         tuple[Path, str]: Una tupla que contiene la ruta del archivo temporal con la imagen anotada y el tipo de medio (MIME type) correspondiente a la imagen.
     """
-    #Lectura de la imagen desde los bytes recibidos
+    # Lectura de la imagen desde los bytes recibidos
     frame = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
     if frame is None:
         raise HTTPException(
@@ -44,15 +44,15 @@ def process_image(
             detail="No se pudo leer la imagen enviada.",
         )
 
-    #Realización de las predicciones utilizando el modelo YOLO y anotación de la imagen con los resultados
+    # Realización de las predicciones utilizando el modelo YOLO y anotación de la imagen con los resultados
     results = yolo_model.predict(frame, confidence_threshold)
     annotated_frame = yolo_model.draw_results(frame, results)
 
-    #Creación de un archivo temporal para guardar la imagen anotada
+    # Creación de un archivo temporal para guardar la imagen anotada
     with NamedTemporaryFile(delete=False, suffix=TEMP_IMAGE_SUFFIX) as output_file:
         output_path = Path(output_file.name)
 
-    #Comprobación de que se pudo guardar la imagen anotada en el archivo temporal
+    # Comprobación de que se pudo guardar la imagen anotada en el archivo temporal
     if not cv2.imwrite(str(output_path), annotated_frame):
         output_path.unlink(missing_ok=True)
         raise HTTPException(
@@ -84,19 +84,19 @@ def process_video(
         tuple[Path, str]: Una tupla que contiene la ruta del archivo temporal con el video anotado y el tipo de medio (MIME type) correspondiente al video.
     """
     
-    #Creación de archivos temporales para el video de entrada y el video de salida
+    # Creación de archivos temporales para el video de entrada y el video de salida
     with NamedTemporaryFile(delete=False, suffix=TEMP_VIDEO_SUFFIX) as input_file:
         input_file.write(contents)
         input_path = Path(input_file.name)
 
-    #Creación de un archivo temporal para guardar el video anotado
+    # Creación de un archivo temporal para guardar el video anotado
     with NamedTemporaryFile(delete=False, suffix=TEMP_VIDEO_SUFFIX) as output_file:
         output_path = Path(output_file.name)
 
-    #Apertura del video de entrada utilizando OpenCV y comprobación de que se pudo abrir correctamente
+    # Apertura del video de entrada utilizando OpenCV y comprobación de que se pudo abrir correctamente
     capture = cv2.VideoCapture(str(input_path))
     if not capture.isOpened():
-        #Liberación del recurso de captura y eliminación de los archivos temporales antes de lanzar la excepción
+        # Liberación del recurso de captura y eliminación de los archivos temporales antes de lanzar la excepción
         input_path.unlink(missing_ok=True)
         output_path.unlink(missing_ok=True)
         raise HTTPException(
@@ -104,14 +104,14 @@ def process_video(
             detail="No se pudo abrir el video enviado.",
         )
 
-    #Obtención de los FPS, ancho y alto del video para configurar el VideoWriter
+    # Obtención de los FPS, ancho y alto del video para configurar el VideoWriter
     fps = capture.get(cv2.CAP_PROP_FPS)
     if not fps or fps <= 0:
         fps = DEFAULT_VIDEO_FPS
     width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     if width <= 0 or height <= 0:
-        #Liberación del recurso de captura y eliminación de los archivos temporales antes de lanzar la excepción
+        # Liberación del recurso de captura y eliminación de los archivos temporales antes de lanzar la excepción
         capture.release()
         input_path.unlink(missing_ok=True)
         output_path.unlink(missing_ok=True)
@@ -120,7 +120,7 @@ def process_video(
             detail="No se pudieron obtener las dimensiones del video.",
         )
 
-    #Creación del VideoWriter para escribir el video anotado
+    # Creación del VideoWriter para escribir el video anotado
     writer = cv2.VideoWriter(
         str(output_path),
         cv2.VideoWriter_fourcc(*DEFAULT_VIDEO_CODEC),
@@ -137,22 +137,22 @@ def process_video(
         )
 
     try:
-        #Bucle de procesamiento de cada frame del video
+        # Bucle de procesamiento de cada frame del video
         while True:
-            #Lectura de un frame del video
+            # Lectura de un frame del video
             success, frame = capture.read()
             if not success:
                 break
             
-            #Realización de las predicciones utilizando el modelo YOLO y anotación del frame con los resultados
+            # Realización de las predicciones utilizando el modelo YOLO y anotación del frame con los resultados
             results = yolo_model.predict(frame, confidence_threshold)
             annotated_frame = yolo_model.draw_results(frame, results)
             
-            #Escritura del frame anotado en el video de salida
+            # Escritura del frame anotado en el video de salida
             writer.write(annotated_frame)
 
     finally:
-        #Liberación de los recursos de captura y escritura, y eliminación del archivo temporal de entrada
+        # Liberación de los recursos de captura y escritura, y eliminación del archivo temporal de entrada
         capture.release()
         writer.release()
         input_path.unlink(missing_ok=True)

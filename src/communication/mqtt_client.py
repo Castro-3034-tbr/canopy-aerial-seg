@@ -1,8 +1,6 @@
-"""
-Utilidades para la comunicación MQTT
-"""
 import json
 import logging
+from typing import Any
 
 import paho.mqtt.client as mqtt
 
@@ -13,130 +11,127 @@ logger = logging.getLogger(__name__)
 
 class MQTTClient:
 
-    def __init__(self, client_id, broker, port, topic):
-        """Inicializa el cliente MQTT y arranca el loop de red en segundo plano.
-
-        La conexión se realiza de forma asíncrona mediante `connect_async`, por lo que
-        el estado final de conexión se notifica en los callbacks `_on_connect` y
-        `_on_disconnect`.
+    def __init__(
+        self,
+        client_id: str,
+        broker: str,
+        port: int,
+        topic: str,
+    ) -> None:
+        """Inicializa el cliente MQTT y arranca el loop de red.
 
         Args:
-            client_id (str): Identificador único del cliente MQTT.
+            client_id (str): Identificador unico del cliente MQTT.
             broker (str): Host o IP del broker MQTT.
             port (int): Puerto TCP del broker MQTT.
-            topic (str): Topic por defecto donde se publicarán mensajes.
-
-        Returns:
-            None
+            topic (str): Topic por defecto donde publicar mensajes.
         """
         self.mqtt_enabled = False
-        self.mqttTopic = topic
+        self.mqtt_topic = topic
         self._broker = broker
         self._port = port
-        self.mqttClient = None
+        self.mqtt_client: mqtt.Client | None = None
 
         try:
-            logger.info(f"Inicializando MQTT client con broker: {broker}:{port}, topic: {topic}")
-
-            self.mqttClient = mqtt.Client(client_id=client_id)
-
-            # Callbacks de estado de conexión
-            self.mqttClient.on_connect = self._on_connect
-            self.mqttClient.on_disconnect = self._on_disconnect
-
-            # Non-blocking connect
-            self.mqttClient.connect_async(
+            # Inicializa el cliente y prepara los callbacks de estado.
+            logger.info(
+                "Inicializando cliente MQTT con broker %s:%s y topic %s",
+                broker,
+                port,
+                topic,
+            )
+            self.mqtt_client = mqtt.Client(client_id=client_id)
+            self.mqtt_client.on_connect = self._on_connect
+            self.mqtt_client.on_disconnect = self._on_disconnect
+            # La conexion se realiza en segundo plano para no bloquear.
+            self.mqtt_client.connect_async(
                 broker,
                 port,
                 keepalive=DEFAULT_MQTT_KEEPALIVE,
             )
-            self.mqttClient.loop_start()
-
-        except Exception as e:
-            logger.warning(f"Failed to setup MQTT client: {e}. Video processing will continue without MQTT.")
+            self.mqtt_client.loop_start()
+        except Exception as exc:
+            logger.warning(
+                "No se pudo inicializar MQTT: %s. "
+                "El procesado continuara sin MQTT.",
+                exc,
+            )
             self.mqtt_enabled = False
 
-    def _on_connect(self, client, userdata, flags, rc, properties=None):
-        """Gestiona el evento de conexión del cliente MQTT.
+    def _on_connect(
+        self,
+        client: mqtt.Client,
+        userdata: Any,
+        flags: dict,
+        rc: int,
+        properties: Any = None,
+    ) -> None:
+        """Gestiona la conexion del cliente MQTT."""
+        del client, userdata, flags, properties
 
-        Args:
-            client (mqtt.Client): Instancia del cliente que disparó el callback.
-            userdata (Any): Datos de usuario asociados al cliente (si existen).
-            flags (dict): Banderas de respuesta de conexión enviadas por el broker.
-            rc (int): Código de resultado de conexión. `0` indica éxito.
-            properties (Any, optional): Propiedades MQTT v5 cuando están disponibles.
-
-        Returns:
-            None
-        """
         if rc == 0:
+            # Activa la publicacion solo si la conexion fue correcta.
             self.mqtt_enabled = True
-            logger.info(f"MQTT connected to {self._broker}:{self._port}, topic: {self.mqttTopic}")
-        else:
-            logger.warning(f"MQTT connection failed with code {rc}")
+            logger.info(
+                "MQTT conectado a %s:%s con topic %s",
+                self._broker,
+                self._port,
+                self.mqtt_topic,
+            )
+            return
 
-    def _on_disconnect(self, client, userdata, rc, properties=None):
-        """Gestiona el evento de desconexión del cliente MQTT.
+        logger.warning("Fallo de conexion MQTT con codigo %s", rc)
 
-        Desactiva la publicación marcando `mqtt_enabled` como `False`.
+    def _on_disconnect(
+        self,
+        client: mqtt.Client,
+        userdata: Any,
+        rc: int,
+        properties: Any = None,
+    ) -> None:
+        """Gestiona la desconexion del cliente MQTT."""
+        del client, userdata, properties
 
-        Args:
-            client (mqtt.Client): Instancia del cliente que disparó el callback.
-            userdata (Any): Datos de usuario asociados al cliente (si existen).
-            rc (int): Código de desconexión. Distinto de `0` suele indicar corte inesperado.
-            properties (Any, optional): Propiedades MQTT v5 cuando están disponibles.
-
-        Returns:
-            None
-        """
+        # Cualquier desconexion invalida temporalmente la publicacion.
         self.mqtt_enabled = False
         if rc != 0:
-            logger.warning("MQTT disconnected unexpectedly, will attempt reconnect")
-    
-    def publish(self, payload: dict):
-        """Publica un mensaje JSON en el topic configurado.
+            logger.warning("MQTT se ha desconectado de forma inesperada")
 
-        Si el cliente no está habilitado o no fue inicializado, no envía el mensaje.
-
-        Args:
-            payload (dict): Estructura de datos a serializar y publicar en MQTT.
-
-        Returns:
-            None
-        """
-
-        # Verificamos si el cliente MQTT está habilitado antes de intentar publicar
-        if not self.mqtt_enabled or self.mqttClient is None:
-            logger.warning("MQTT client is not enabled. Message will not be published.")
+    def publish(self, payload: dict) -> None:
+        """Publica un mensaje JSON en el topic configurado."""
+        # Evita intentar publicar cuando el cliente aun no esta operativo.
+        if not self.mqtt_enabled or self.mqtt_client is None:
+            logger.warning(
+                "El cliente MQTT no esta disponible. "
+                "No se publicara el mensaje."
+            )
             return
 
         try:
-            # Convertimos el payload a JSON antes de publicarlo
-            payloadJson = json.dumps(payload)
-
-            # Publicamos el mensaje en el topic configurado
-            result = self.mqttClient.publish(self.mqttTopic, payloadJson)
+            # Serializa el payload a JSON antes de enviarlo al broker.
+            payload_json = json.dumps(payload)
+            result = self.mqtt_client.publish(self.mqtt_topic, payload_json)
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
-                logger.warning(f"Failed to publish MQTT message: {mqtt.error_string(result.rc)}")
-            else:
-                logger.info(f"MQTT message published successfully to topic {self.mqttTopic}")
-        except Exception as e:
-            logger.warning(f"Error while publishing MQTT message: {e}")
+                logger.warning(
+                    "No se pudo publicar el mensaje MQTT: %s",
+                    mqtt.error_string(result.rc),
+                )
+                return
 
-    def disconnect(self):
-        """Detiene el loop de red y desconecta el cliente MQTT de forma segura.
+            logger.info(
+                "Mensaje MQTT publicado correctamente en %s",
+                self.mqtt_topic,
+            )
+        except Exception as exc:
+            logger.warning("Error al publicar el mensaje MQTT: %s", exc)
 
-        Si el cliente no fue inicializado, no realiza ninguna acción.
-
-        Returns:
-            None
-        """
-
-        if self.mqttClient is None:
-            logger.warning("MQTT client was not initialized. No need to disconnect.")
+    def disconnect(self) -> None:
+        """Detiene el loop de red y desconecta el cliente MQTT."""
+        if self.mqtt_client is None:
+            logger.warning("El cliente MQTT no estaba inicializado.")
             return
 
-        # Detenemos el loop y desconectamos el cliente MQTT de forma segura
-        self.mqttClient.loop_stop()
-        self.mqttClient.disconnect()
+        # Detiene el loop en segundo plano y libera la conexion activa.
+        self.mqtt_client.loop_stop()
+        self.mqtt_client.disconnect()
         self.mqtt_enabled = False

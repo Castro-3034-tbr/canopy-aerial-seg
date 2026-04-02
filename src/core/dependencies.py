@@ -14,36 +14,29 @@ from src.utils.logger import configure_logging
 
 
 def build_runtime() -> dict:
-    """Construye el estado compartido y los componentes necesarios para la aplicacion, 
-    incluyendo la configuración, el modelo de inferencia y el gestor de streams."""
-    
-    #Configuracion del sistema de logging
+    """Construye el estado compartido y los componentes principales."""
+    # Configura el logging antes de inicializar el resto del runtime.
     configure_logging()
-    
-    #Carga de la configuración de la aplicación desde un archivo JSON
+    # Carga la configuracion persistida del proyecto.
     config = load_config()
-    
-    #Inicializacion del Manager de multriprocesos y del estado compartido para la aplicación
+    # Crea el gestor de objetos compartidos para los procesos hijos.
     manager = Manager()
-    
-    #Inicializacion del estado compartido para la aplicación
     runtime_state = init_runtime_state(manager)
-    
-    #Obtencion de las configuraciones específicas
-    save_path = config.get("SavePath", {})
+
+    # Extrae los bloques de configuracion que usan el modelo y las salidas.
+    save_path_config = config.get("SavePath", {})
     model_config = config.get("Model", {})
-    
-    #Inicializacion del modelo de inferencia YOLO
+
+    # Construye el modelo una sola vez para reutilizarlo en la aplicacion.
     yolo_model = YoloInference(
         model_config.get("Path"),
         model_config.get("Device", "cpu"),
     )
-    
-    #Inicializacion del gestor de streams, encargado de gestionar los flujos de video y su procesamiento
+    # Crea el gestor responsable de arrancar y detener streams.
     stream_manager = StreamManager(
         manager=manager,
         model_config=model_config,
-        save_path_config=save_path,
+        save_path_config=save_path_config,
         runtime_state=runtime_state,
         yolo_model=yolo_model,
     )
@@ -58,21 +51,19 @@ def build_runtime() -> dict:
 
 
 def create_application() -> FastAPI:
-    """Crea la instancia de la aplicación FastAPI, construyendo las dependencias necesarias y registrando las rutas del API."""
-    
-    #Creacion de la intancia de la aplcicaion FastAPI
+    """Crea la aplicacion FastAPI y registra las dependencias."""
+    # Inicializa la aplicacion con los metadatos visibles en OpenAPI.
     app = FastAPI(
         title=APP_TITLE,
         description=APP_DESCRIPTION,
         version=APP_VERSION,
     )
-    #Construccion de las dependencias
     runtime = build_runtime()
-    
-    #Registro del estado compartido y los componentes necesarios en el estado de la aplicación para su uso en los endpoints
+
+    # Expone el runtime en app.state para reutilizarlo desde las rutas.
     for key, value in runtime.items():
         setattr(app.state, key, value)
 
-    #Registro de las rutas del API en la aplicación
+    # Registra el router principal de la API.
     app.include_router(router)
     return app

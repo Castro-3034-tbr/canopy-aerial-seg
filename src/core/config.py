@@ -7,40 +7,39 @@ from src.core.constants import DEFAULT_CONFIG_PATH
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> dict:
-    """Carga la configuracion de la aplicacion desde un archivo JSON, validando su existencia y formato.
+    """Carga la configuracion de la aplicacion desde un archivo JSON.
 
     Args:
-        path (str | Path, optional): Ruta del archivo de configuración. Defaults to DEFAULT_CONFIG_PATH.
+        path (str | Path, optional): Ruta del archivo de configuracion.
 
     Raises:
-        FileNotFoundError: Si el archivo de configuración no se encuentra.
-        ValueError: Si el archivo de configuración tiene un formato inválido.
+        FileNotFoundError: Si el archivo no existe.
+        ValueError: Si el JSON no es valido o no contiene un objeto.
 
     Returns:
-        dict: El diccionario con la configuración cargada.
+        dict: Configuracion cargada desde disco.
     """
-
-    #Validación de la existencia del archivo de configuración
+    # Normaliza la ruta para trabajar siempre con objetos Path.
     config_path = Path(path)
     if not config_path.is_file():
         raise FileNotFoundError(
-            f"Archivo de configuración no encontrado: {config_path}"
+            f"Archivo de configuracion no encontrado: {config_path}"
         )
 
     try:
-        #Lectura y parseo del archivo de configuración JSON, con manejo de errores para formato inválido
+        # Lee y parsea el JSON principal de configuracion.
         with config_path.open("r", encoding="utf-8") as file:
             config = json.load(file)
     except json.JSONDecodeError as exc:
-        #Error al parsear el archivo de configuracion
+        # Convierte el error de parseo a una excepcion mas expresiva.
         raise ValueError(
-            f"Error al parsear el archivo de configuración: {exc}"
+            f"Error al parsear el archivo de configuracion: {exc}"
         ) from exc
 
     if not isinstance(config, dict):
-        #
+        # La aplicacion espera un objeto JSON en la raiz del archivo.
         raise ValueError(
-            "Formato de configuración inválido: se esperaba un objeto JSON."
+            "Formato de configuracion invalido: se esperaba un objeto JSON."
         )
 
     return config

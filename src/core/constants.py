@@ -5,7 +5,7 @@ from pathlib import Path
 
 #---- Configuracion de la aplicación ----#
 APP_TITLE = "TFM API"                                                                   # Título de la aplicación FastAPI
-APP_DESCRIPTION = "API for YOLOv8 Object Detection"                                     # Descripción de la aplicación FastAPI
+APP_DESCRIPTION = "API para detección de objetos con YOLOv8"                                     # Descripción de la aplicación FastAPI
 APP_VERSION = "1.0.0"                                                                   # Versión de la aplicación FastAPI
 DOCS_PATH = "/docs"                                                                     # Ruta para la documentación automática de la API
 

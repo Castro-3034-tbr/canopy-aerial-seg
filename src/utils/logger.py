@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+
 from src.core.constants import (
     DEFAULT_LOG_DIR,
     DEFAULT_LOG_FILENAME,
@@ -10,21 +11,19 @@ from src.core.constants import (
 
 
 def configure_logging(log_filename: str = DEFAULT_LOG_FILENAME) -> None:
-    """Configura el sistema de logging para la aplicación, 
-    estableciendo el nivel de log, el formato y los handlers para escribir en un archivo y en la consola.
+    """Configura el sistema de logging de la aplicacion.
 
     Args:
-        log_filename (str, optional):Ruta del archivo de log. Por defecto es DEFAULT_LOG_FILENAME.
+        log_filename (str, optional): Nombre del archivo de log.
     """
-    
-    #Creacion del directorio de logs si no existe
+    # Garantiza que el directorio de logs exista antes de crear handlers.
     DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    #Comprobación de si ya hay handlers configurados para evitar configurar el logging más de una vez
+    # Evita registrar handlers duplicados si el logger raiz ya esta listo.
     if logging.getLogger().handlers:
         return
 
-    #Configuración del logging con el nivel, formato y handlers para escribir en un archivo y en la consola
+    # Envia los mensajes tanto a fichero como a consola.
     logging.basicConfig(
         level=DEFAULT_LOG_LEVEL,
         format=DEFAULT_LOG_FORMAT,

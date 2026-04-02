@@ -18,7 +18,6 @@ from src.core.constants import (
     FRAME_QUEUE_TIMEOUT_SECONDS,
     PROCESSOR_MQTT_CLIENT_ID,
 )
-from src.perception.yolo_inference import YoloInference
 
 logger = logging.getLogger(__name__)
 
@@ -62,49 +61,56 @@ def processor_process(
         port=mqtt_port,
         topic=mqtt_topic,
     )
-    
-    #Creacion de los directorios para logs e inferencias, y del archivo CSV para logs si se ha habilitado la opción de guardar logs
+
     project_root = Path.cwd()
     logs_dir = project_root / project_data.save_path_logs
     inference_dir = project_root / project_data.save_path_inference
 
     log_csv = None
     if save_log:
+        # Crea un CSV por ejecucion para persistir las detecciones del stream.
         log_csv = logs_dir / (
-            f"{DETECTIONS_LOG_PREFIX}{int(time.time())}{DETECTIONS_LOG_SUFFIX}"
+            f"{DETECTIONS_LOG_PREFIX}{int(time.time())}"
+            f"{DETECTIONS_LOG_SUFFIX}"
         )
         log_csv.parent.mkdir(parents=True, exist_ok=True)
         if not log_csv.exists():
-            pd.DataFrame(columns=DETECTION_LOG_COLUMNS).to_csv(log_csv, index=False)
+            pd.DataFrame(columns=DETECTION_LOG_COLUMNS).to_csv(
+                log_csv,
+                index=False,
+            )
 
     if save_inference:
+        # Prepara el directorio de salida de frames anotados.
         inference_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        
-        #Bucle de procesamiento de frames
         while project_data.processor_process_running:
-
-            #Obtencion del frame desde la cola compartida, con un timeout para evitar bloqueos indefinidos
             try:
+                # Espera un frame sin bloquear indefinidamente.
                 package = shared_data.frame_queue.get(
                     timeout=FRAME_QUEUE_TIMEOUT_SECONDS
                 )
             except queue.Empty:
-                logger.info("No se recibió ningún frame en el último segundo, esperando...")
+                logger.info(
+                    "No se recibio ningun frame en el ultimo segundo."
+                )
                 continue
-            
-            #Obtencion de los resultados de la inferencia
+
+            # Ejecuta inferencia y adapta el resultado a un formato simple.
             frame = package["img"]
             frame_id = package["frame_id"]
-            yolo_results = yolo_model.predict(frame, confidence_threshold=confidence_class)
+            yolo_results = yolo_model.predict(
+                frame,
+                confidence_threshold=confidence_class,
+            )
             detections = yolo_model.extract_detections(yolo_results)
-            
-            #Publicacion de los resultados en el broker MQTT
+
+            # Publica el lote actual de detecciones en MQTT.
             mqtt_client.publish(detections)
 
-            #Guardado de los resultados en el log CSV
             if save_log and log_csv is not None:
+                # Añade una fila por deteccion al log tabular del stream.
                 timestamp = time.time()
                 rows = [
                     {
@@ -124,16 +130,19 @@ def processor_process(
                         header=False,
                         index=False,
                     )
-            
-            #Guardado de las inferencias visuales en formato de imagen
+
             if save_inference:
+                # Guarda una version anotada del frame procesado.
                 annotated_frame = yolo_model.draw_results(frame, yolo_results)
                 image_path = inference_dir / (
-                    f"{FRAME_FILENAME_PREFIX}{frame_id}{FRAME_FILENAME_SUFFIX}"
+                    f"{FRAME_FILENAME_PREFIX}{frame_id}"
+                    f"{FRAME_FILENAME_SUFFIX}"
                 )
                 if not cv2.imwrite(str(image_path), annotated_frame):
-                    logger.warning("No se pudo guardar la inferencia en %s", image_path)
-
+                    logger.warning(
+                        "No se pudo guardar la inferencia en %s",
+                        image_path,
+                    )
     finally:
-        # Asegurar la desconexión del cliente MQTT al finalizar el proceso
+        # Cierra la conexion MQTT aunque el proceso termine por error.
         mqtt_client.disconnect()

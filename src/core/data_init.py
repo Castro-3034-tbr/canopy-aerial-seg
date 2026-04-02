@@ -4,19 +4,19 @@ from src.core.constants import DEFAULT_QUEUE_SIZE
 
 
 def init_shared_data(manager, max_queue_size: int = DEFAULT_QUEUE_SIZE):
-    """Inicializa los datos compartidos entre procesos, incluyendo la cola de frames.
+    """Inicializa los datos compartidos entre procesos.
 
     Args:
-        manager (Manager): Instancia del Manager de multiprocessing para crear objetos compartidos entre procesos.
-        max_queue_size (int, optional): Tamaño máximo de la cola de frames. Defaults to DEFAULT_QUEUE_SIZE.
+        manager (Manager): Gestor de multiprocessing.
+        max_queue_size (int, optional): Tamano maximo de la cola de frames.
 
     Returns:
-        Namespace: Instancia del objeto compartido que contiene la cola de frames.
+        Namespace: Espacio compartido con la cola de frames.
     """
-    # Creación de un Namespace para los datos compartidos y una cola de frames con el tamaño máximo especificado
+    # Agrupa los recursos compartidos entre lector y procesador.
     shared_data = manager.Namespace()
 
-    # Creación de una cola de frames compartida entre procesos con un tamaño máximo para evitar un consumo excesivo de memoria
+    # Limita la cola para evitar un crecimiento descontrolado en memoria.
     shared_data.frame_queue = manager.Queue(maxsize=max_queue_size)
     return shared_data
 
@@ -28,19 +28,22 @@ def init_project_data(
     save_path_logs: str,
     save_path_inference: str,
 ):
-    """Inicializa los datos especificos del proyecto
+    """Inicializa los datos compartidos especificos del proyecto.
 
     Args:
-        manager (Manager): Instancia del Manager de multiprocessing para crear objetos compartidos entre procesos.
-        yolo_path (str): Ruta al modelo YOLO.
-        yolo_device (str): Dispositivo para la inferencia (cpu o cuda).
-        save_path_logs (str): Ruta para guardar los archivos de log.
-        save_path_inference (str): Ruta para guardar los resultados de la inferencia.
+        manager (Manager): Gestor de multiprocessing.
+        yolo_path (str): Ruta del modelo YOLO.
+        yolo_device (str): Dispositivo usado para inferencia.
+        save_path_logs (str): Ruta de salida para logs.
+        save_path_inference (str): Ruta de salida para inferencias.
 
     Returns:
-        Namespace: Instancia del objeto compartido que contiene los datos del proyecto.
+        Namespace: Espacio compartido con la configuracion del proyecto.
     """
+    # Crea el Namespace para los datos de configuracion y estado del proyecto.
     project_data = manager.Namespace()
+
+    # Inicializa las señales de control para los procesos de lectura y procesamiento.
     project_data.reader_process_running = False
     project_data.processor_process_running = False
     project_data.save_path_logs = save_path_logs
@@ -49,9 +52,13 @@ def init_project_data(
     project_data.yolo_device = yolo_device
     return project_data
 
+
 def init_runtime_state(manager):
-    """Inicializa el estado de tiempo de ejecución de la aplicación compartido a nivel de API."""
+    """Inicializa el estado compartido a nivel de API."""
+    # Crea un Namespace para el estado global de la aplicacion.
     runtime_state = manager.Namespace()
+
+    # Estado de ejecucion global, usado para controlar el ciclo de vida de la aplicacion.
     runtime_state.running = True
     runtime_state.active_streams = 0
     return runtime_state

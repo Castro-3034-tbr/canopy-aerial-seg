@@ -73,22 +73,22 @@ class StreamManager:
             mqtt_topic (str): Tema del broker MQTT.
 
         Raises:
-            HTTPException: Si ya existe una sesión con el streamId proporcionado.
+            HTTPException: Si ya existe una sesión con el stream_id proporcionado.
             HTTPException: Si no se pudieron iniciar los procesos del stream.
             HTTPException: Si los procesos del stream no quedaron activos tras el arranque.
 
         Returns:
-            dict: Información sobre la sesión del stream iniciada, incluyendo el streamId, estado, URL de RTSP y configuración MQTT.
+            dict: Información sobre la sesión del stream iniciada, incluyendo el stream_id, estado, URL de RTSP y configuración MQTT.
         """
-        #Si no se proporciona un stream_id, se genera uno automaticamente
+        # Si no se proporciona un stream_id, se genera uno automaticamente
         session_id = stream_id or f"stream-{uuid4().hex[:8]}"
         if session_id in self.sessions:
             raise HTTPException(
                 status_code=409,
-                detail=f"Ya existe una sesión con streamId '{session_id}'.",
+                detail=f"Ya existe una sesión con stream_id '{session_id}'.",
             )
 
-        #Inicialización de los datos compartidos y de los procesos de lectura e inferencia para el nuevo stream
+        # Inicialización de los datos compartidos y de los procesos de lectura e inferencia para el nuevo stream
         shared_data = init_shared_data(self.manager)
         project_data = init_project_data(
             self.manager,
@@ -100,7 +100,7 @@ class StreamManager:
         project_data.reader_process_running = True
         project_data.processor_process_running = True
 
-        #Construccion del proceso de lectura
+        # Construccion del proceso de lectura
         reader = multiprocessing.Process(
             target=reader_process,
             args=(shared_data, project_data, rtsp_url),
@@ -108,7 +108,7 @@ class StreamManager:
             daemon=True,
         )
         
-        #Construccion del proceso de inferencia
+        # Construccion del proceso de inferencia
         processor = multiprocessing.Process(
             target=processor_process,
             args=(
@@ -127,7 +127,7 @@ class StreamManager:
         )
 
         try:
-            #Arranque de los procesos de lectura e inferencia
+            # Arranque de los procesos de lectura e inferencia
             reader.start()
             processor.start()
         except Exception as exc:
@@ -149,7 +149,7 @@ class StreamManager:
                 detail="Los procesos del stream no quedaron activos tras el arranque.",
             )
 
-        #Guardado de la informacion de la sesion del stream
+        # Guardado de la informacion de la sesion del stream
         self.sessions[session_id] = {
             "stream_id": session_id,
             "state": "running",
@@ -168,9 +168,9 @@ class StreamManager:
 
         return {
             "msg": STREAM_START_SUCCESS_MESSAGE,
-            "streamId": session_id,
+            "stream_id": session_id,
             "state": "running",
-            "rtspUrl": rtsp_url,
+            "rtsp_url": rtsp_url,
             "mqtt": self.sessions[session_id]["mqtt"],
         }
 
@@ -192,10 +192,10 @@ class StreamManager:
             dict: Información sobre el stream detenido.
         """
         
-        #Si no se proporciona un stream_id, se detienen todos los streams activos
+        # Si no se proporciona un stream_id, se detienen todos los streams activos
         if stream_id is None:
             
-            #Detención de todos los streams activos utilizando el método _stop_one para cada sesión, y construcción de la respuesta con la información de los streams detenidos.
+            # Detención de todos los streams activos utilizando el método _stop_one para cada sesión, y construcción de la respuesta con la información de los streams detenidos.
             stopped_streams = [
                 self._stop_one(session_id, timeout)
                 for session_id in list(self.sessions)
@@ -205,18 +205,18 @@ class StreamManager:
                 "stopped": stopped_streams,
             }
 
-        #Si no se encuentra una sesión con el stream_id proporcionado, se lanza una HTTPException indicando que no existe la sesión.
+        # Si no se encuentra una sesión con el stream_id proporcionado, se lanza una HTTPException indicando que no existe la sesión.
         if stream_id not in self.sessions:
             raise HTTPException(
                 status_code=404,
-                detail=f"No existe ninguna sesión con streamId '{stream_id}'.",
+                detail=f"No existe ninguna sesión con stream_id '{stream_id}'.",
             )
 
-        #Parada del stream específico utilizando el método _stop_one.
+        # Parada del stream específico utilizando el método _stop_one.
         stopped = self._stop_one(stream_id, timeout)
         return {
             "msg": STREAM_STOP_SUCCESS_MESSAGE,
-            "streamId": stopped["streamId"],
+            "stream_id": stopped["stream_id"],
             "state": stopped["state"],
         }
 
@@ -232,9 +232,9 @@ class StreamManager:
             "active_streams": len(self.sessions),
             "streams": [
                 {
-                    "streamId": session_id,
+                    "stream_id": session_id,
                     "state": session["state"],
-                    "rtspUrl": session["rtsp_url"],
+                    "rtsp_url": session["rtsp_url"],
                     "reader_alive": bool(session["reader_process"].is_alive()),
                     "processor_alive": bool(session["processor_process"].is_alive()),
                 }
@@ -255,17 +255,17 @@ class StreamManager:
             dict: Información sobre el stream detenido
         """
         
-        #Obtencion de la sesion del stream
+        # Obtencion de la sesion del stream
         session = self.sessions[stream_id]
         session["state"] = "stopping"
         session["project_data"].reader_process_running = False
         session["project_data"].processor_process_running = False
 
-        #Espera para la finalizacion de los procesos
+        # Espera para la finalizacion de los procesos
         for process in (session["reader_process"], session["processor_process"]):
             process.join(timeout=timeout)
             
-            #Si el proceso no termina a tiempo, se fuerza su terminacion
+            # Si el proceso no termina a tiempo, se fuerza su terminacion
             if process.is_alive():
                 logging.warning(
                     "El proceso %s no terminó a tiempo; se fuerza terminate().",
@@ -274,8 +274,8 @@ class StreamManager:
                 process.terminate()
                 process.join(timeout=timeout)
 
-        #Eliminacion de la sesion del stream
+        # Eliminacion de la sesion del stream
         del self.sessions[stream_id]
         self.runtime_state.active_streams = len(self.sessions)
 
-        return {"streamId": stream_id, "state": "stopped"}
+        return {"stream_id": stream_id, "state": "stopped"}

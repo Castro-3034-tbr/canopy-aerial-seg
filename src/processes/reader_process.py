@@ -1,4 +1,4 @@
-"""Video stream reader process."""
+
 
 from __future__ import annotations
 
@@ -28,11 +28,11 @@ def reader_process(shared_data, project_data, rtsp_url):
     # Contador de frames para asignar un ID único a cada frame leído
     frame_counter = 0
 
-    #Bucle principal de lectura de frames
+    # Bucle principal de lectura de frames
     while project_data.reader_process_running:
         container = None
         try:
-            #Creacion del contenedor de video utilizando PyAV para conectarse a la fuente RTSP
+            # Creacion del contenedor de video utilizando PyAV para conectarse a la fuente RTSP
             container = av.open(
                 rtsp_url,
                 options=RTSP_OPTIONS,
@@ -43,12 +43,12 @@ def reader_process(shared_data, project_data, rtsp_url):
             timebase = float(stream.time_base) if stream.time_base is not None else 0.0
             fps = float(stream.average_rate) if stream.average_rate else None
             logger.info(
-                "RTSP stream connected (PyAV) - Timebase: %s, FPS: %s",
+                "Stream RTSP conectado (PyAV) - timebase: %s, FPS: %s",
                 timebase,
                 fps,
             )
 
-            #Lectura de frames del video y colocación en la cola compartida
+            # Lectura de frames del video y colocación en la cola compartida
             for frame in container.decode(stream):
                 # Verificación de la señal de parada del proceso de lectura antes de colocar el frame en la cola
                 if not project_data.reader_process_running:
@@ -66,12 +66,12 @@ def reader_process(shared_data, project_data, rtsp_url):
                 )
                 frame_counter += 1
 
-            #Si el bucle de lectura termina de forma natural, se espera un tiempo y se intenta reconectar si el proceso de lectura sigue activo
+            # Si el bucle de lectura termina de forma natural, se espera un tiempo y se intenta reconectar si el proceso de lectura sigue activo
             if project_data.reader_process_running:
-                logger.warning("RTSP stream ended, reconnecting...")
+                logger.warning("Stream RTSP finalizado, reconectando...")
                 time.sleep(RECONNECT_DELAY_SECONDS)
         except Exception as exc:
-            logger.warning("RTSP read failed, reconnecting... (%s)", exc)
+            logger.warning("Lectura RTSP fallida, reconectando... (%s)", exc)
             time.sleep(RECONNECT_DELAY_SECONDS)
         finally:
             # Asegurar el cierre del contenedor de video para liberar recursos
