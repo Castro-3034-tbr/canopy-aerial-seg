@@ -264,7 +264,10 @@ class StreamManager:
         session["project_data"].processor_process_running = False
 
         # Espera para la finalizacion de los procesos
-        for process in (session["reader_process"], session["processor_process"]):
+        for process in (
+            session["reader_process"],
+            session["processor_process"],
+        ):
             process.join(timeout=timeout)
 
             # Si el proceso no termina a tiempo, se fuerza su terminacion

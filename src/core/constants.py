@@ -1,3 +1,5 @@
+# trunk-ignore-all(isort)
+# trunk-ignore-all(black)
 """Constantes compartidas usadas por la aplicacion."""
 
 from __future__ import annotations

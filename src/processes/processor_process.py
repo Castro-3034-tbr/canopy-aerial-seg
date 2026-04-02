@@ -33,7 +33,7 @@ def processor_process(
     mqtt_broker,
     mqtt_port,
     mqtt_topic,
-    yolo_model
+    yolo_model,
 ):
     """Funcion principal del proceso de procesamiento de los frame de video,
     Se encarga:
@@ -55,7 +55,7 @@ def processor_process(
         mqtt_topic (str): Tema del broker MQTT.
         yolo_model (YoloInference): Instancia del modelo de inferencia YOLO cargado.
     """
-    
+
     # Inicialización del cliente MQTT
     mqtt_client = MQTTClient(
         client_id=PROCESSOR_MQTT_CLIENT_ID,
@@ -72,8 +72,7 @@ def processor_process(
     if save_log:
         # Crea un CSV por ejecucion para persistir las detecciones del stream.
         log_csv = logs_dir / (
-            f"{DETECTIONS_LOG_PREFIX}{int(time.time())}"
-            f"{DETECTIONS_LOG_SUFFIX}"
+            f"{DETECTIONS_LOG_PREFIX}{int(time.time())}" f"{DETECTIONS_LOG_SUFFIX}"
         )
         log_csv.parent.mkdir(parents=True, exist_ok=True)
         if not log_csv.exists():
@@ -94,9 +93,7 @@ def processor_process(
                     timeout=FRAME_QUEUE_TIMEOUT_SECONDS
                 )
             except queue.Empty:
-                logger.info(
-                    "No se recibio ningun frame en el ultimo segundo."
-                )
+                logger.info("No se recibio ningun frame en el ultimo segundo.")
                 continue
 
             # Ejecuta inferencia y adapta el resultado a un formato simple.
@@ -137,8 +134,7 @@ def processor_process(
                 # Guarda una version anotada del frame procesado.
                 annotated_frame = yolo_model.draw_results(frame, yolo_results)
                 image_path = inference_dir / (
-                    f"{FRAME_FILENAME_PREFIX}{frame_id}"
-                    f"{FRAME_FILENAME_SUFFIX}"
+                    f"{FRAME_FILENAME_PREFIX}{frame_id}" f"{FRAME_FILENAME_SUFFIX}"
                 )
                 if not cv2.imwrite(str(image_path), annotated_frame):
                     logger.warning(
