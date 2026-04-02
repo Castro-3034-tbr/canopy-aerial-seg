@@ -1,3 +1,5 @@
+"""Cliente MQTT y utilidades de publicacion para el proyecto."""
+
 import json
 import logging
 from typing import Any

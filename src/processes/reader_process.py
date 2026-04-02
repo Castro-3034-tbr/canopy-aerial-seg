@@ -1,4 +1,4 @@
-
+"""Proceso lector para flujos de video RTSP."""
 
 from __future__ import annotations
 

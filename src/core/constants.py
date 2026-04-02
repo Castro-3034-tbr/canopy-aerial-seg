@@ -1,3 +1,5 @@
+"""Constantes compartidas usadas por la aplicacion."""
+
 from __future__ import annotations
 
 from pathlib import Path

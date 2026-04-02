@@ -1,3 +1,5 @@
+"""Inicializacion de estados y estructuras compartidas."""
+
 from __future__ import annotations
 
 from src.core.constants import DEFAULT_QUEUE_SIZE

@@ -1,3 +1,5 @@
+"""Funciones de postproceso para mascaras y detecciones."""
+
 from __future__ import annotations
 
 import cv2

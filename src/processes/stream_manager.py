@@ -1,3 +1,5 @@
+"""Gestion del ciclo de vida de los procesos asociados a streams."""
+
 from __future__ import annotations
 
 import logging

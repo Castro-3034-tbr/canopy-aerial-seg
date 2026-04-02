@@ -1,3 +1,5 @@
+"""Construccion del runtime y la aplicacion FastAPI."""
+
 from __future__ import annotations
 
 from multiprocessing import Manager

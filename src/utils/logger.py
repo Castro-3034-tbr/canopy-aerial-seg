@@ -1,3 +1,5 @@
+"""Configuracion comun del sistema de logging."""
+
 from __future__ import annotations
 
 import logging

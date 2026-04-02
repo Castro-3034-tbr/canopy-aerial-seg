@@ -1,3 +1,5 @@
+"""Carga y validacion de la configuracion de la aplicacion."""
+
 from __future__ import annotations
 
 import json
