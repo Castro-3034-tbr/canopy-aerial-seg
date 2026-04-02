@@ -14,7 +14,7 @@ from src.core.constants import (
     STREAM_START_SUCCESS_MESSAGE,
     STREAM_STOP_SUCCESS_MESSAGE,
 )
-from src.core.ipc import init_project_data, init_shared_data
+from src.core.data_init import init_project_data, init_shared_data
 from src.processes.processor_process import processor_process
 from src.processes.reader_process import reader_process
 
