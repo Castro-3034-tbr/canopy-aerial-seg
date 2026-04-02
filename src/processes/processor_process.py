@@ -29,7 +29,7 @@ def processor_process(
     project_data,
     save_log,
     save_inference,
-    confidence_class,
+    confidence_threshold,
     mqtt_broker,
     mqtt_port,
     mqtt_topic,
@@ -49,7 +49,7 @@ def processor_process(
         project_data (Manager.Namespace): Configuración y datos específicos del proyecto, como rutas de guardado y configuración del modelo.
         save_log (bool): Indicador para guardar logs.
         save_inference (bool): Indicador para guardar inferencias visuales.
-        confidence_class (float): Umbral de confianza para filtrar detecciones.
+        confidence_threshold (float): Umbral de confianza para filtrar detecciones.
         mqtt_broker (str): Dirección del broker MQTT.
         mqtt_port (int): Puerto del broker MQTT.
         mqtt_topic (str): Tema del broker MQTT.
@@ -101,7 +101,7 @@ def processor_process(
             frame_id = package["frame_id"]
             yolo_results = yolo_model.predict(
                 frame,
-                confidence_threshold=confidence_class,
+                confidence_threshold=confidence_threshold,
             )
             detections = yolo_model.extract_detections(yolo_results)
 

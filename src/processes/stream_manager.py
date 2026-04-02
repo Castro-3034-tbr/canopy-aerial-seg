@@ -57,7 +57,7 @@ class StreamManager:
         rtsp_url: str,
         save_log: bool,
         save_inference: bool,
-        confidence_class: float,
+        confidence_threshold: float,
         mqtt_broker: str,
         mqtt_port: int,
         mqtt_topic: str,
@@ -69,7 +69,7 @@ class StreamManager:
             rtsp_url (str): URL de la fuente de video RTSP.
             save_log (bool): Indicador para guardar logs.
             save_inference (bool): Indicador para guardar inferencias visuales.
-            confidence_class (float): Umbral de confianza para filtrar detecciones.
+            confidence_threshold (float): Umbral de confianza para filtrar detecciones.
             mqtt_broker (str): Dirección del broker MQTT.
             mqtt_port (int): Puerto del broker MQTT.
             mqtt_topic (str): Tema del broker MQTT.
@@ -118,7 +118,7 @@ class StreamManager:
                 project_data,
                 save_log,
                 save_inference,
-                confidence_class,
+                confidence_threshold,
                 mqtt_broker,
                 mqtt_port,
                 mqtt_topic,

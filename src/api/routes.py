@@ -53,9 +53,9 @@ def start_stream(
     ),
     save_log: bool = Query(default=False, alias="saveLog"),
     save_inference: bool = Query(default=False, alias="saveInference"),
-    confidence_class: float = Query(
+    confidence_threshold: float = Query(
         default=DEFAULT_CONFIDENCE_THRESHOLD,
-        alias="confidenceClass",
+        alias="confidenceThreshold",
         description="Umbral de confianza para filtrar detecciones.",
     ),
     mqtt_broker: str = Query(
@@ -82,7 +82,7 @@ def start_stream(
         rtsp_url=rtsp_url,
         save_log=save_log,
         save_inference=save_inference,
-        confidence_class=confidence_class,
+        confidence_threshold=confidence_threshold,
         mqtt_broker=mqtt_broker,
         mqtt_port=mqtt_port,
         mqtt_topic=mqtt_topic,
@@ -115,9 +115,9 @@ async def predict_file(
         alias="file",
         description="Archivo de imagen o video a procesar.",
     ),
-    confidence_class: float = Query(
+    confidence_threshold: float = Query(
         default=DEFAULT_CONFIDENCE_THRESHOLD,
-        alias="confidenceClass",
+        alias="confidenceThreshold",
         description="Umbral de confianza para las detecciones.",
     ),
 ) -> FileResponse:
@@ -132,7 +132,7 @@ async def predict_file(
         output_path, media_type = process_image(
             yolo_model,
             contents,
-            confidence_class,
+            confidence_threshold,
         )
         download_name = (
             f"{ANNOTATED_FILENAME_PREFIX}"
@@ -143,7 +143,7 @@ async def predict_file(
         output_path, media_type = process_video(
             yolo_model,
             contents,
-            confidence_class,
+            confidence_threshold,
         )
         download_name = (
             f"{ANNOTATED_FILENAME_PREFIX}"

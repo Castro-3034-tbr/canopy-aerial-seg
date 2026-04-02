@@ -79,7 +79,7 @@ async def lifespan(app: FastAPI):
         shutdown_runtime(app)
 
 
-def create_application() -> FastAPI:
+def create_app() -> FastAPI:
     """Crea la aplicacion FastAPI y registra las dependencias."""
     # Inicializa la aplicacion con los metadatos visibles en OpenAPI.
     app = FastAPI(
