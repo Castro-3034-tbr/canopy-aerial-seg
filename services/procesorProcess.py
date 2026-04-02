@@ -9,6 +9,7 @@ from pathlib import Path
 
 import cv2
 import pandas as pd
+import queue
 
 from utils.utils_mqtt import MQTTClient
 from utils.utils_yolo import ClassYOLO
@@ -58,8 +59,10 @@ def processorProcess(
     # Bucle de procesamiento.
     while projectData.processorProcessRunning:
         # Intentamos obtener un frame del sharedData con un timeout para evitar bloqueos indefinidos.
-        package = sharedData.frame_queue.get(timeout=1)
-        if package is None:
+        try:
+            package = sharedData.frame_queue.get(timeout=1)
+        except queue.Empty:
+            logger.info("No se recibió ningún frame en el último segundo, esperando...")
             continue
 
         frame = package["img"]
