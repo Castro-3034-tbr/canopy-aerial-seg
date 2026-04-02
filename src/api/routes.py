@@ -40,7 +40,7 @@ def start_stream(
     request: Request,
     stream_id: str | None = Query(
         default=None,
-        alias="stream Id",
+        alias="streamId",
         description=(
             "Identificador unico del stream. "
             "Si no se envia, se genera automaticamente."
@@ -48,7 +48,7 @@ def start_stream(
     ),
     rtsp_url: str = Query(
         ...,
-        alias="rts pUrl",
+        alias="rtspUrl",
         description="URL RTSP del flujo de video.",
     ),
     save_log: bool = Query(default=False, alias="saveLog"),
@@ -60,17 +60,17 @@ def start_stream(
     ),
     mqtt_broker: str = Query(
         ...,
-        alias="mqtt Broker",
+        alias="mqttBroker",
         description="Direccion IP o nombre del broker MQTT.",
     ),
     mqtt_port: int = Query(
         ...,
-        alias="mqtt Port",
+        alias="mqttPort",
         description="Puerto del broker MQTT.",
     ),
     mqtt_topic: str = Query(
         default=DEFAULT_MQTT_TOPIC,
-        alias="mqtt Topic",
+        alias="mqttTopic",
         description="Topic MQTT para publicar detecciones.",
     ),
 ) -> dict:
@@ -94,7 +94,7 @@ def stop_stream(
     request: Request,
     stream_id: str | None = Query(
         default=None,
-        alias="stream Id",
+        alias="streamId",
         description=(
             "Si se indica, detiene solo ese stream. "
             "Si no, detiene todos los activos."
