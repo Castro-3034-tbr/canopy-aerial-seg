@@ -1,0 +1,139 @@
+from __future__ import annotations
+
+import logging
+import queue
+import time
+from pathlib import Path
+
+import cv2
+import pandas as pd
+
+from src.communication.mqtt_client import MQTTClient
+from src.core.constants import (
+    DETECTION_LOG_COLUMNS,
+    DETECTIONS_LOG_PREFIX,
+    DETECTIONS_LOG_SUFFIX,
+    FRAME_FILENAME_PREFIX,
+    FRAME_FILENAME_SUFFIX,
+    FRAME_QUEUE_TIMEOUT_SECONDS,
+    PROCESSOR_MQTT_CLIENT_ID,
+)
+from src.perception.yolo_inference import YoloInference
+
+logger = logging.getLogger(__name__)
+
+
+def processor_process(
+    shared_data,
+    project_data,
+    save_log,
+    save_inference,
+    confidence_class,
+    mqtt_broker,
+    mqtt_port,
+    mqtt_topic,
+    yolo_model
+):
+    """Funcion principal del proceso de procesamiento de los frame de video,
+    Se encarga:
+        - Obtener el frame desde la cola compartida.
+        - Realizar la inferencia utilizando el modelo YOLO.
+        - Adaptar los resultados de la inferencia al formato requerido por el cliente MQTT.
+        - Publicar los resultados en el broker MQTT.
+        - Guardar los resultados en un log CSV si se ha habilitado la opción de guardar logs.
+        - Guardar las inferencias visuales en formato de imagen si se ha habilitado la opción de guardar inferencias.
+
+    Args:
+        shared_data (Manager.Namespace): Datos compartidos entre procesos, incluyendo la cola de frames.
+        project_data (Manager.Namespace): Configuración y datos específicos del proyecto, como rutas de guardado y configuración del modelo.
+        save_log (bool): Indicador para guardar logs.
+        save_inference (bool): Indicador para guardar inferencias visuales.
+        confidence_class (float): Umbral de confianza para filtrar detecciones.
+        mqtt_broker (str): Dirección del broker MQTT.
+        mqtt_port (int): Puerto del broker MQTT.
+        mqtt_topic (str): Tema del broker MQTT.
+        yolo_model (YoloInference): Instancia del modelo de inferencia YOLO cargado.
+    """
+    
+    # Inicialización del cliente MQTT
+    mqtt_client = MQTTClient(
+        client_id=PROCESSOR_MQTT_CLIENT_ID,
+        broker=mqtt_broker,
+        port=mqtt_port,
+        topic=mqtt_topic,
+    )
+    
+    #Creacion de los directorios para logs e inferencias, y del archivo CSV para logs si se ha habilitado la opción de guardar logs
+    project_root = Path.cwd()
+    logs_dir = project_root / project_data.save_path_logs
+    inference_dir = project_root / project_data.save_path_inference
+
+    log_csv = None
+    if save_log:
+        log_csv = logs_dir / (
+            f"{DETECTIONS_LOG_PREFIX}{int(time.time())}{DETECTIONS_LOG_SUFFIX}"
+        )
+        log_csv.parent.mkdir(parents=True, exist_ok=True)
+        if not log_csv.exists():
+            pd.DataFrame(columns=DETECTION_LOG_COLUMNS).to_csv(log_csv, index=False)
+
+    if save_inference:
+        inference_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        
+        #Bucle de procesamiento de frames
+        while project_data.processor_process_running:
+
+            #Obtencion del frame desde la cola compartida, con un timeout para evitar bloqueos indefinidos
+            try:
+                package = shared_data.frame_queue.get(
+                    timeout=FRAME_QUEUE_TIMEOUT_SECONDS
+                )
+            except queue.Empty:
+                logger.info("No se recibió ningún frame en el último segundo, esperando...")
+                continue
+            
+            #Obtencion de los resultados de la inferencia
+            frame = package["img"]
+            frame_id = package["frame_id"]
+            yolo_results = yolo_model.predict(frame, confidence_threshold=confidence_class)
+            detections = yolo_model.extract_detections(yolo_results)
+            
+            #Publicacion de los resultados en el broker MQTT
+            mqtt_client.publish(detections)
+
+            #Guardado de los resultados en el log CSV
+            if save_log and log_csv is not None:
+                timestamp = time.time()
+                rows = [
+                    {
+                        "timestamp": timestamp,
+                        "frame_id": frame_id,
+                        "class": str(detection["class_id"]),
+                        "confidence": str(detection["confidence"]),
+                        "bbox": str(detection["bbox"]),
+                        "mask": "present" if detection["mask"] else "None",
+                    }
+                    for detection in detections
+                ]
+                if rows:
+                    pd.DataFrame(rows).to_csv(
+                        log_csv,
+                        mode="a",
+                        header=False,
+                        index=False,
+                    )
+            
+            #Guardado de las inferencias visuales en formato de imagen
+            if save_inference:
+                annotated_frame = yolo_model.draw_results(frame, yolo_results)
+                image_path = inference_dir / (
+                    f"{FRAME_FILENAME_PREFIX}{frame_id}{FRAME_FILENAME_SUFFIX}"
+                )
+                if not cv2.imwrite(str(image_path), annotated_frame):
+                    logger.warning("No se pudo guardar la inferencia en %s", image_path)
+
+    finally:
+        # Asegurar la desconexión del cliente MQTT al finalizar el proceso
+        mqtt_client.disconnect()
