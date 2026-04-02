@@ -1,16 +1,19 @@
 """
 Utilidades para la comunicación MQTT
 """
-import logging
 import json
+import logging
+
 import paho.mqtt.client as mqtt
+
+from src.core.constants import DEFAULT_MQTT_KEEPALIVE
 
 logger = logging.getLogger(__name__)
 
 
 class MQTTClient:
 
-    def __init__(self, clientID, broker, port, topic):
+    def __init__(self, client_id, broker, port, topic):
         """Inicializa el cliente MQTT y arranca el loop de red en segundo plano.
 
         La conexión se realiza de forma asíncrona mediante `connect_async`, por lo que
@@ -18,7 +21,7 @@ class MQTTClient:
         `_on_disconnect`.
 
         Args:
-            clientID (str): Identificador único del cliente MQTT.
+            client_id (str): Identificador único del cliente MQTT.
             broker (str): Host o IP del broker MQTT.
             port (int): Puerto TCP del broker MQTT.
             topic (str): Topic por defecto donde se publicarán mensajes.
@@ -35,14 +38,18 @@ class MQTTClient:
         try:
             logger.info(f"Inicializando MQTT client con broker: {broker}:{port}, topic: {topic}")
 
-            self.mqttClient = mqtt.Client(client_id=clientID)
+            self.mqttClient = mqtt.Client(client_id=client_id)
 
             # Callbacks de estado de conexión
             self.mqttClient.on_connect = self._on_connect
             self.mqttClient.on_disconnect = self._on_disconnect
 
             # Non-blocking connect
-            self.mqttClient.connect_async(broker, port, keepalive=60)
+            self.mqttClient.connect_async(
+                broker,
+                port,
+                keepalive=DEFAULT_MQTT_KEEPALIVE,
+            )
             self.mqttClient.loop_start()
 
         except Exception as e:
