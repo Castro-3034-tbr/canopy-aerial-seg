@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from multiprocessing import Manager
 
 from fastapi import FastAPI
@@ -52,6 +53,32 @@ def build_runtime() -> dict:
     }
 
 
+def shutdown_runtime(app: FastAPI) -> None:
+    """Libera los recursos construidos durante el startup."""
+    stream_manager = getattr(app.state, "stream_manager", None)
+    if stream_manager is not None:
+        stream_manager.stop()
+
+    manager = getattr(app.state, "manager", None)
+    if manager is not None:
+        manager.shutdown()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Inicializa y libera el runtime pesado durante el ciclo de vida."""
+    runtime = build_runtime()
+
+    # Expone el runtime en app.state para reutilizarlo desde las rutas.
+    for key, value in runtime.items():
+        setattr(app.state, key, value)
+
+    try:
+        yield
+    finally:
+        shutdown_runtime(app)
+
+
 def create_application() -> FastAPI:
     """Crea la aplicacion FastAPI y registra las dependencias."""
     # Inicializa la aplicacion con los metadatos visibles en OpenAPI.
@@ -59,12 +86,8 @@ def create_application() -> FastAPI:
         title=APP_TITLE,
         description=APP_DESCRIPTION,
         version=APP_VERSION,
+        lifespan=lifespan,
     )
-    runtime = build_runtime()
-
-    # Expone el runtime en app.state para reutilizarlo desde las rutas.
-    for key, value in runtime.items():
-        setattr(app.state, key, value)
 
     # Registra el router principal de la API.
     app.include_router(router)

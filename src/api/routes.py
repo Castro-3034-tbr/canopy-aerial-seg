@@ -23,6 +23,18 @@ from src.utils.file_utils import process_image, process_video
 router = APIRouter()
 
 
+def _require_runtime(request: Request) -> None:
+    """Comprueba que el runtime pesado de la aplicacion este disponible."""
+    if (
+        not hasattr(request.app.state, "stream_manager")
+        or not hasattr(request.app.state, "yolo_model")
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="La aplicacion aun no ha inicializado su runtime.",
+        )
+
+
 @router.post("/stream/start")
 def start_stream(
     request: Request,
@@ -63,6 +75,7 @@ def start_stream(
     ),
 ) -> dict:
     """Inicia un nuevo stream RTSP para procesamiento en tiempo real."""
+    _require_runtime(request)
     # Delega el alta del stream en el gestor central de procesos.
     return request.app.state.stream_manager.start(
         stream_id=stream_id,
@@ -89,6 +102,7 @@ def stop_stream(
     ),
 ) -> dict:
     """Detiene un stream RTSP en ejecucion."""
+    _require_runtime(request)
     # Si no llega identificador, el gestor detendra todos los streams.
     return request.app.state.stream_manager.stop(stream_id=stream_id)
 
@@ -108,6 +122,7 @@ async def predict_file(
     ),
 ) -> FileResponse:
     """Procesa una imagen o un video y devuelve el resultado anotado."""
+    _require_runtime(request)
     # Lee el contenido completo para derivarlo al pipeline adecuado.
     contents = await file.read()
     yolo_model = request.app.state.yolo_model
@@ -157,6 +172,7 @@ async def predict_file(
 @router.get("/health")
 def health(request: Request) -> dict:
     """Verifica el estado de la API y del gestor de streams."""
+    _require_runtime(request)
     # Expone tanto el estado general como el detalle de los streams activos.
     return {
         "msg": HEALTH_OK_MESSAGE,
