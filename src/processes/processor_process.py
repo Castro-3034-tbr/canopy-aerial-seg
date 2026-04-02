@@ -93,7 +93,7 @@ def processor_process(
                     timeout=FRAME_QUEUE_TIMEOUT_SECONDS
                 )
             except queue.Empty:
-                logger.info("No se recibio ningun frame en el ultimo segundo.")
+                logger.warning("No se recibio ningun frame en el ultimo segundo.")
                 continue
 
             # Ejecuta inferencia y adapta el resultado a un formato simple.
