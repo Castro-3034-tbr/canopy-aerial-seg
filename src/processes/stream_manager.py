@@ -12,9 +12,9 @@ from src.core.constants import (
     DEFAULT_MODEL_DEVICE,
     DEFAULT_MODEL_PATH,
     PROCESS_JOIN_TIMEOUT,
-    STREAMS_STOP_SUCCESS_MESSAGE,
     STREAM_START_SUCCESS_MESSAGE,
     STREAM_STOP_SUCCESS_MESSAGE,
+    STREAMS_STOP_SUCCESS_MESSAGE,
 )
 from src.core.data_init import init_project_data, init_shared_data
 from src.processes.processor_process import processor_process
@@ -23,7 +23,7 @@ from src.processes.reader_process import reader_process
 
 class StreamManager:
     """Manager del ciclo de vida de los procesos de lectura e inferencia de cada stream,
-    incluyendo la creacion de los datos compartidos, arranque y parada de los procesos, 
+    incluyendo la creacion de los datos compartidos, arranque y parada de los procesos,
     y el mantenimiento del estado de cada stream activo."""
 
     def __init__(
@@ -43,14 +43,14 @@ class StreamManager:
             runtime_state (Manager.Namespace): Estado de ejecución compartido a nivel de aplicación, incluyendo el número de streams activos.
             yolo_model (object | None, optional): Instancia del modelo de inferencia YOLO para ser reutilizada en los procesos. Defaults to None.
         """
-        
+
         self.manager = manager
         self.model_config = model_config
         self.save_path_config = save_path_config
         self.runtime_state = runtime_state
-        self.sessions: dict[str, dict] = {}   
+        self.sessions: dict[str, dict] = {}
         self.yolo_model = yolo_model
-    
+
     def start(
         self,
         stream_id: str | None,
@@ -109,7 +109,7 @@ class StreamManager:
             name=f"ReaderProcess-{session_id}",
             daemon=True,
         )
-        
+
         # Construccion del proceso de inferencia
         processor = multiprocessing.Process(
             target=processor_process,
@@ -122,7 +122,7 @@ class StreamManager:
                 mqtt_broker,
                 mqtt_port,
                 mqtt_topic,
-                self.yolo_model
+                self.yolo_model,
             ),
             name=f"ProcessorProcess-{session_id}",
             daemon=True,
@@ -193,10 +193,10 @@ class StreamManager:
         Returns:
             dict: Información sobre el stream detenido.
         """
-        
+
         # Si no se proporciona un stream_id, se detienen todos los streams activos
         if stream_id is None:
-            
+
             # Detención de todos los streams activos utilizando el método _stop_one para cada sesión, y construcción de la respuesta con la información de los streams detenidos.
             stopped_streams = [
                 self._stop_one(session_id, timeout)
@@ -224,7 +224,7 @@ class StreamManager:
 
     def health(self) -> dict:
         """Proporciona información sobre el estado de los streams activos,
-        incluyendo el número de streams activos, el estado de cada stream, 
+        incluyendo el número de streams activos, el estado de cada stream,
         la URL de RTSP y el estado de los procesos de lectura e inferencia.
 
         Returns:
@@ -256,7 +256,7 @@ class StreamManager:
         Returns:
             dict: Información sobre el stream detenido
         """
-        
+
         # Obtencion de la sesion del stream
         session = self.sessions[stream_id]
         session["state"] = "stopping"
@@ -266,7 +266,7 @@ class StreamManager:
         # Espera para la finalizacion de los procesos
         for process in (session["reader_process"], session["processor_process"]):
             process.join(timeout=timeout)
-            
+
             # Si el proceso no termina a tiempo, se fuerza su terminacion
             if process.is_alive():
                 logging.warning(

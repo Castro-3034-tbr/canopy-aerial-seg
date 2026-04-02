@@ -70,7 +70,7 @@ def process_video(
     contents: bytes,
     confidence_threshold: float,
 ) -> tuple[Path, str]:
-    """ Procesa un video utilizando el modelo YOLO y devuelve la ruta del archivo temporal con el video anotado.
+    """Procesa un video utilizando el modelo YOLO y devuelve la ruta del archivo temporal con el video anotado.
 
     Args:
         yolo_model (ultralytics.yolo.engine.model.YOLO): El modelo YOLO cargado para realizar las predicciones.
@@ -85,7 +85,7 @@ def process_video(
     Returns:
         tuple[Path, str]: Una tupla que contiene la ruta del archivo temporal con el video anotado y el tipo de medio (MIME type) correspondiente al video.
     """
-    
+
     # Creación de archivos temporales para el video de entrada y el video de salida
     with NamedTemporaryFile(delete=False, suffix=TEMP_VIDEO_SUFFIX) as input_file:
         input_file.write(contents)
@@ -145,11 +145,11 @@ def process_video(
             success, frame = capture.read()
             if not success:
                 break
-            
+
             # Realización de las predicciones utilizando el modelo YOLO y anotación del frame con los resultados
             results = yolo_model.predict(frame, confidence_threshold)
             annotated_frame = yolo_model.draw_results(frame, results)
-            
+
             # Escritura del frame anotado en el video de salida
             writer.write(annotated_frame)
 

@@ -24,7 +24,7 @@ def reader_process(shared_data, project_data, rtsp_url):
         project_data (Manager.Namespace): Configuración y datos específicos del proyecto, como rutas de guardado y configuración del modelo.
         rtsp_url (str): URL de la fuente de video RTSP.
     """
-    
+
     # Contador de frames para asignar un ID único a cada frame leído
     frame_counter = 0
 
@@ -53,7 +53,7 @@ def reader_process(shared_data, project_data, rtsp_url):
                 # Verificación de la señal de parada del proceso de lectura antes de colocar el frame en la cola
                 if not project_data.reader_process_running:
                     break
-                
+
                 # Guardado del frame y su informacion en la cola
                 shared_data.frame_queue.put(
                     {

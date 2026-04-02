@@ -54,8 +54,7 @@ class MQTTClient:
             self.mqtt_client.loop_start()
         except Exception as exc:
             logger.warning(
-                "No se pudo inicializar MQTT: %s. "
-                "El procesado continuara sin MQTT.",
+                "No se pudo inicializar MQTT: %s. " "El procesado continuara sin MQTT.",
                 exc,
             )
             self.mqtt_enabled = False
@@ -104,8 +103,7 @@ class MQTTClient:
         # Evita intentar publicar cuando el cliente aun no esta operativo.
         if not self.mqtt_enabled or self.mqtt_client is None:
             logger.warning(
-                "El cliente MQTT no esta disponible. "
-                "No se publicara el mensaje."
+                "El cliente MQTT no esta disponible. " "No se publicara el mensaje."
             )
             return
 
