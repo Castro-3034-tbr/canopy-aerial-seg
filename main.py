@@ -12,7 +12,6 @@ from src.core.logger import configure_logging
 from src.training.pipeline import YoloPipeline
 from src.utils.filesystem import resolve_path
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -31,7 +30,9 @@ def main() -> int:
     )
     model_path = resolve_path(config.get("model", {}).get("path"))
 
-    logger.info(f"Rutas cargadas - Data: {data_path}, Output: {output_path}, Model: {model_path}")
+    logger.info(
+        f"Rutas cargadas - Data: {data_path}, Output: {output_path}, Model: {model_path}"
+    )
 
     # Carga del modelo
     try:
