@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from src.core.types import PredictConfig, YoloModel, YoloTaskResult
 
 
 def yolo_predict(
-    model,
+    model: YoloModel,
     source: str,
     output_path: str,
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    config: PredictConfig,
+) -> YoloTaskResult:
     """
     Ejecuta inferencia (predicción) con un modelo YOLO.
 
@@ -16,26 +16,25 @@ def yolo_predict(
         model: Instancia del modelo YOLO (ultralytics).
         source (str): Ruta de entrada (imagen, vídeo o directorio).
         output_path (str): Directorio base de salida.
-        config (Dict[str, Any]): Configuración de inferencia.
+        config (PredictConfig): Configuración de inferencia.
 
     Returns:
-        Dict[str, Any]: Resultados de la predicción.
+        YoloTaskResult: Resultado devuelto por Ultralytics.
 
     Raises:
         RuntimeError: Si falla la inferencia.
     """
 
-    # Creación de argumentos para la inferencia
-    predict_args: Dict[str, Any] = {
+    predict_args: dict[str, object] = {
         "source": source,
-        "conf": config.get("conf_threshold", config.get("conf", 0.25)),
-        "imgsz": config.get("img_size", config.get("imgsz", 640)),
-        "device": config.get("device", "cpu"),
-        "save": config.get("save_results", True),
-        "save_txt": config.get("save_txt", config.get("save_results", True)),
-        "save_conf": config.get("save_conf", True),
+        "conf_threshold": config.conf_threshold,
+        "imgsz": config.img_size,
+        "device": config.device,
+        "save": config.save_results,
+        "save_txt": config.save_txt,
+        "save_conf": config.save_conf,
         "name": f"{output_path}/detect",
-        "exist_ok": config.get("exist_ok", True),
+        "exist_ok": config.exist_ok,
     }
 
     # Ejecución de la inferencia

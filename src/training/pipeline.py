@@ -2,8 +2,16 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict
 
+from src.core.types import (
+    PipelineConfig,
+    PipelineResults,
+    PredictConfig,
+    TaskConfig,
+    TrainConfig,
+    ValidationConfig,
+    YoloModel,
+)
 from src.inference.predictor import yolo_predict
 from src.training.trainer import yolo_train
 from src.training.validator import yolo_validate
@@ -22,7 +30,7 @@ class YoloPipeline:
 
     def __init__(
         self,
-        model,
+        model: YoloModel,
         data_path: str,
         output_path: str,
     ) -> None:
@@ -36,50 +44,55 @@ class YoloPipeline:
         self.data_path = data_path
         self.output_path = output_path
 
-    def run(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, config: PipelineConfig) -> PipelineResults:
         """
         Ejecuta el pipeline según la configuración.
 
         Args:
-            config (Dict[str, Any]): Configuración global del pipeline.
+            config (PipelineConfig): Configuración global del pipeline.
 
         Returns:
-            Dict[str, Any]: Resultados de cada etapa ejecutada.
+            PipelineResults: Resultados de cada etapa ejecutada.
         """
 
-        results: Dict[str, Any] = {}
+        results: PipelineResults = {}
+        task_config: TaskConfig = config.task
+        train_config: TrainConfig = config.train
+        validation_config: ValidationConfig = config.val
+        predict_config: PredictConfig = config.predict
+
         logger.info("Iniciando ejecución del pipeline YOLO.")
 
         data_directory = os.path.dirname(self.data_path)
         clean_cache(directory=data_directory)
 
         # Entreno del modelo
-        if config.get("task", {}).get("train", False):
+        if task_config.train:
             results["train"] = yolo_train(
                 model=self.model,
                 data_path=self.data_path,
                 output_path=self.output_path,
-                config=config["train"],
+                config=train_config,
             )
 
         # Validación del modelo
-        if config.get("task", {}).get("val", False):
+        if task_config.val:
             results["val"] = yolo_validate(
                 model=self.model,
                 data_path=self.data_path,
                 output_path=self.output_path,
-                config=config["val"],
+                config=validation_config,
             )
 
         # Predicción con el modelo
-        if config.get("task", {}).get("predict", False):
-            source = config["predict"].get("source", self.data_path)
+        if task_config.predict:
+            source = predict_config.source or self.data_path
 
             results["predict"] = yolo_predict(
                 model=self.model,
                 source=source,
                 output_path=self.output_path,
-                config=config["predict"],
+                config=predict_config,
             )
 
         # Muestra de resultados

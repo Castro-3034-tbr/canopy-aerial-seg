@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from src.core.types import ValidationConfig, YoloModel, YoloTaskResult
 
 
 def yolo_validate(
-    model,
+    model: YoloModel,
     data_path: str,
     output_path: str,
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    config: ValidationConfig,
+) -> YoloTaskResult:
     """
     Ejecuta la validación de un modelo YOLO.
 
@@ -16,22 +16,22 @@ def yolo_validate(
         model: Instancia del modelo YOLO (ultralytics).
         data_path (str): Ruta al archivo data.yaml.
         output_path (str): Directorio base de salida.
-        config (Dict[str, Any]): Configuración de validación.
+        config (ValidationConfig): Configuración de validación.
 
     Returns:
-        Dict[str, Any]: Resultados de la validación.
+        YoloTaskResult: Resultado devuelto por Ultralytics.
 
     Raises:
         RuntimeError: Si falla la validación.
     """
 
     # Creación de argumentos para la validación
-    val_args: Dict[str, Any] = {
+    val_args: dict[str, object] = {
         "data": data_path,
-        "batch": config.get("batch_size", config.get("batch", 16)),
-        "imgsz": config.get("img_size", config.get("imgsz", 640)),
-        "device": config.get("device", "cpu"),
-        "workers": config.get("workers", 4),
+        "batch": config.batch_size,
+        "imgsz": config.img_size,
+        "device": config.device,
+        "workers": config.workers,
         "name": f"{output_path}/validation",
     }
 

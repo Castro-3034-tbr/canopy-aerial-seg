@@ -82,14 +82,18 @@ def split_dataset(
         if not images or not labels:
             raise ValueError("El dataset esta vacio")
     except Exception as exc:
-        raise RuntimeError(f"Error al listar archivos del dataset: {exc}") from exc
+        raise RuntimeError(
+            f"Error al listar archivos del dataset: {exc}"
+        ) from exc
 
     # Mezclamos los archivos para evitar sesgos
     try:
         pairs = make_pairs(images, labels)
         random.shuffle(pairs)
     except Exception as exc:
-        raise RuntimeError(f"Error durante la mezcla de archivos: {exc}") from exc
+        raise RuntimeError(
+            f"Error durante la mezcla de archivos: {exc}"
+        ) from exc
 
     # Division del dataset
     try:
@@ -144,4 +148,6 @@ def split_dataset(
             )
 
     except Exception as exc:
-        raise RuntimeError(f"Error durante la division del dataset: {exc}") from exc
+        raise RuntimeError(
+            f"Error durante la division del dataset: {exc}"
+        ) from exc

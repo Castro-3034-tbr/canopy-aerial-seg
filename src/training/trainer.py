@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from src.core.types import TrainConfig, YoloModel, YoloTaskResult
 
 
 def yolo_train(
-    model,
+    model: YoloModel,
     data_path: str,
     output_path: str,
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    config: TrainConfig,
+) -> YoloTaskResult:
     """
     Ejecuta el entrenamiento de un modelo YOLO.
 
@@ -16,10 +16,10 @@ def yolo_train(
         model: Instancia del modelo YOLO (ultralytics).
         data_path (str): Ruta al archivo data.yaml.
         output_path (str): Directorio base de salida.
-        config (Dict[str, Any]): Configuración de entrenamiento.
+        config (TrainConfig): Configuración de entrenamiento.
 
     Returns:
-        Dict[str, Any]: Resultados del entrenamiento.
+        YoloTaskResult: Resultado devuelto por Ultralytics.
 
     Raises:
         ValueError: Si faltan parámetros obligatorios.
@@ -27,25 +27,29 @@ def yolo_train(
     """
 
     # Validación de parámetros obligatorios
-    if "epochs" not in config:
+    if config.epochs is None:
         raise ValueError("El parámetro 'epochs' es obligatorio en config.")
 
     # Creación de argumentos para el entrenamiento
-    train_args: Dict[str, Any] = {
+    train_args: dict[str, object] = {
         "data": data_path,
-        "epochs": config["epochs"],
-        "batch": config.get("batch_size", config.get("batch", 16)),
-        "imgsz": config.get("img_size", config.get("imgsz", 640)),
-        "device": config.get("device", "cpu"),
-        "save_period": config.get("save_period", -1),
-        "seed": config.get("seed", 42),
-        "patience": config.get("patience", 10),
-        "workers": config.get("workers", 4),
+        "epochs": config.epochs,
+        "batch": config.batch_size if config.batch_size is not None else (
+            config.batch_size if config.batch_size is not None else 16
+        ),
+        "imgsz": config.img_size if config.img_size is not None else (
+            config.img_size if config.img_size is not None else 640
+        ),
+        "device": config.device,
+        "save_period": config.save_period,
+        "seed": config.seed,
+        "patience": config.patience,
+        "workers": config.workers,
         "name": f"{output_path}/train",
-        "mosaic": config.get("mosaic", False),
+        "mosaic": config.mosaic,
     }
 
-    if not config.get("augmentation", False):
+    if not config.augmentation:
         # Desactivar augmentations explícitamente
         train_args.update(
             {

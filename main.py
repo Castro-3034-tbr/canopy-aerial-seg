@@ -23,12 +23,12 @@ def main() -> int:
     config = load_config("config/config.json")
 
     # Resolucion de rutas
-    data_path = resolve_path(config.get("pathData"))
+    data_path = resolve_path(config.pathData)
     output_path = resolve_path(
-        config.get("pathResult"),
+        config.pathResult,
         default=PROJECT_ROOT / "results",
     )
-    model_path = resolve_path(config.get("model", {}).get("path"))
+    model_path = resolve_path(config.model.path)
 
     logger.info(
         "Rutas cargadas - Data: %s, Output: %s, Model: %s",
