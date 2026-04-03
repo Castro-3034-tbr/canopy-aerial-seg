@@ -45,9 +45,10 @@ def init_project_data(
     # Crea el Namespace para los datos de configuracion y estado del proyecto.
     project_data = manager.Namespace()
 
-    # Inicializa las señales de control para los procesos de lectura y procesamiento.
-    project_data.reader_process_running = False
-    project_data.processor_process_running = False
+    # Inicializa las señales de control para los procesos de lectura y
+    # procesamiento mediante eventos compartidos.
+    project_data.reader_process_running = manager.Event()
+    project_data.processor_process_running = manager.Event()
     project_data.save_path_logs = save_path_logs
     project_data.save_path_inference = save_path_inference
     project_data.yolo_path = yolo_path

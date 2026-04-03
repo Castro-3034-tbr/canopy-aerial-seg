@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import logging
+import queue
 import time
 
 import av
 
-from src.core.constants import RECONNECT_DELAY_SECONDS, RTSP_OPTIONS
+from src.core.constants import (
+    FRAME_QUEUE_PUT_TIMEOUT_SECONDS,
+    RECONNECT_DELAY_SECONDS,
+    RTSP_OPTIONS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +36,7 @@ def reader_process(shared_data, project_data, rtsp_url):
     frame_counter = 0
 
     # Bucle principal de lectura de frames
-    while project_data.reader_process_running:
+    while project_data.reader_process_running.is_set():
         container = None
         try:
             # Creacion del contenedor de video utilizando PyAV para conectarse a la fuente RTSP
@@ -55,23 +60,51 @@ def reader_process(shared_data, project_data, rtsp_url):
             # Lectura de frames del video y colocación en la cola compartida
             for frame in container.decode(stream):
                 # Verificación de la señal de parada del proceso de lectura antes de colocar el frame en la cola
-                if not project_data.reader_process_running:
+                if not project_data.reader_process_running.is_set():
                     break
 
                 # Guardado del frame y su informacion en la cola
-                shared_data.frame_queue.put(
-                    {
-                        "img": frame.to_ndarray(format="bgr24"),
-                        "frame_id": frame_counter,
-                        "pts": frame.pts,
-                        "width": frame.width,
-                        "height": frame.height,
-                    }
-                )
+                package = {
+                    "img": frame.to_ndarray(format="bgr24"),
+                    "frame_id": frame_counter,
+                    "pts": frame.pts,
+                    "width": frame.width,
+                    "height": frame.height,
+                }
+                try:
+                    shared_data.frame_queue.put(
+                        package,
+                        timeout=FRAME_QUEUE_PUT_TIMEOUT_SECONDS,
+                    )
+                except queue.Full:
+                    # Mantiene el stream vivo priorizando los frames mas recientes.
+                    try:
+                        dropped_package = shared_data.frame_queue.get_nowait()
+                        dropped_frame_id = dropped_package.get("frame_id")
+                    except queue.Empty:
+                        dropped_frame_id = None
+
+                    logger.warning(
+                        "Cola de frames llena; se descarta el frame mas antiguo "
+                        "stream_id=%s dropped_frame_id=%s new_frame_id=%s",
+                        stream_id,
+                        dropped_frame_id,
+                        frame_counter,
+                    )
+                    try:
+                        shared_data.frame_queue.put_nowait(package)
+                    except queue.Full:
+                        logger.warning(
+                            "No se pudo insertar el nuevo frame tras descartar uno "
+                            "stream_id=%s frame_id=%s",
+                            stream_id,
+                            frame_counter,
+                        )
+                        continue
                 frame_counter += 1
 
             # Si el bucle de lectura termina de forma natural, se espera un tiempo y se intenta reconectar si el proceso de lectura sigue activo
-            if project_data.reader_process_running:
+            if project_data.reader_process_running.is_set():
                 logger.info(
                     "Stream RTSP finalizado; se reintentara la conexion "
                     "stream_id=%s rtsp_url=%s",

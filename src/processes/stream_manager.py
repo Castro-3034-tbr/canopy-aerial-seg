@@ -101,8 +101,8 @@ class StreamManager:
             self.save_path_config.get("Logs", "logs/"),
             self.save_path_config.get("Inference", "inference/"),
         )
-        project_data.reader_process_running = True
-        project_data.processor_process_running = True
+        project_data.reader_process_running.set()
+        project_data.processor_process_running.set()
         project_data.stream_id = session_id
 
         # Construccion del proceso de lectura
@@ -137,8 +137,8 @@ class StreamManager:
             processor.start()
         except Exception as exc:
             # Si ocurre cualquier excepción durante el arranque de los procesos, se asegura que ambos procesos se detengan y se lanza una HTTPException con el error.
-            project_data.reader_process_running = False
-            project_data.processor_process_running = False
+            project_data.reader_process_running.clear()
+            project_data.processor_process_running.clear()
             logger.exception(
                 "No se pudieron iniciar los procesos del stream_id=%s rtsp_url=%s",
                 session_id,
@@ -151,8 +151,8 @@ class StreamManager:
 
         if not reader.is_alive() or not processor.is_alive():
             # Si alguno de los procesos no quedó activo tras el arranque, se asegura que ambos procesos se detengan y se lanza una HTTPException indicando el error.
-            project_data.reader_process_running = False
-            project_data.processor_process_running = False
+            project_data.reader_process_running.clear()
+            project_data.processor_process_running.clear()
             raise HTTPException(
                 status_code=500,
                 detail="Los procesos del stream no quedaron activos tras el arranque.",
@@ -267,8 +267,8 @@ class StreamManager:
         # Obtencion de la sesion del stream
         session = self.sessions[stream_id]
         session["state"] = "stopping"
-        session["project_data"].reader_process_running = False
-        session["project_data"].processor_process_running = False
+        session["project_data"].reader_process_running.clear()
+        session["project_data"].processor_process_running.clear()
 
         # Espera para la finalizacion de los procesos
         for process in (
