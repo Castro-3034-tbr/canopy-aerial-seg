@@ -25,6 +25,8 @@ def reader_process(shared_data, project_data, rtsp_url):
         rtsp_url (str): URL de la fuente de video RTSP.
     """
 
+    stream_id = getattr(project_data, "stream_id", "unknown")
+
     # Contador de frames para asignar un ID único a cada frame leído
     frame_counter = 0
 
@@ -43,7 +45,9 @@ def reader_process(shared_data, project_data, rtsp_url):
             timebase = float(stream.time_base) if stream.time_base is not None else 0.0
             fps = float(stream.average_rate) if stream.average_rate else None
             logger.info(
-                "Stream RTSP conectado (PyAV) - timebase: %s, FPS: %s",
+                "Stream RTSP conectado stream_id=%s rtsp_url=%s timebase=%s fps=%s",
+                stream_id,
+                rtsp_url,
                 timebase,
                 fps,
             )
@@ -68,10 +72,20 @@ def reader_process(shared_data, project_data, rtsp_url):
 
             # Si el bucle de lectura termina de forma natural, se espera un tiempo y se intenta reconectar si el proceso de lectura sigue activo
             if project_data.reader_process_running:
-                logger.warning("Stream RTSP finalizado, reconectando...")
+                logger.info(
+                    "Stream RTSP finalizado; se reintentara la conexion "
+                    "stream_id=%s rtsp_url=%s",
+                    stream_id,
+                    rtsp_url,
+                )
                 time.sleep(RECONNECT_DELAY_SECONDS)
-        except Exception as exc:
-            logger.warning("Lectura RTSP fallida, reconectando... (%s)", exc)
+        except Exception:
+            logger.exception(
+                "Lectura RTSP fallida; se reintentara la conexion "
+                "stream_id=%s rtsp_url=%s",
+                stream_id,
+                rtsp_url,
+            )
             time.sleep(RECONNECT_DELAY_SECONDS)
         finally:
             # Asegurar el cierre del contenedor de video para liberar recursos

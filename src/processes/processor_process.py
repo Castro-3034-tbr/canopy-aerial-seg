@@ -55,6 +55,7 @@ def processor_process(
         mqtt_topic (str): Tema del broker MQTT.
         yolo_model (YoloInference): Instancia del modelo de inferencia YOLO cargado.
     """
+    stream_id = getattr(project_data, "stream_id", "unknown")
 
     # Inicialización del cliente MQTT
     mqtt_client = MQTTClient(
@@ -93,54 +94,78 @@ def processor_process(
                     timeout=FRAME_QUEUE_TIMEOUT_SECONDS
                 )
             except queue.Empty:
-                logger.warning("No se recibio ningun frame en el ultimo segundo.")
+                logger.debug(
+                    "No se recibio ningun frame en el tiempo de espera "
+                    "stream_id=%s timeout_s=%s",
+                    stream_id,
+                    FRAME_QUEUE_TIMEOUT_SECONDS,
+                )
                 continue
 
-            # Ejecuta inferencia y adapta el resultado a un formato simple.
-            frame = package["img"]
-            frame_id = package["frame_id"]
-            yolo_results = yolo_model.predict(
-                frame,
-                confidence_threshold=confidence_threshold,
-            )
-            detections = yolo_model.extract_detections(yolo_results)
-
-            # Publica el lote actual de detecciones en MQTT.
-            mqtt_client.publish(detections)
-
-            if save_log and log_csv is not None:
-                # Añade una fila por deteccion al log tabular del stream.
-                timestamp = time.time()
-                rows = [
-                    {
-                        "timestamp": timestamp,
-                        "frame_id": frame_id,
-                        "class": str(detection["class_id"]),
-                        "confidence": str(detection["confidence"]),
-                        "bbox": str(detection["bbox"]),
-                        "mask": "present" if detection["mask"] else "None",
-                    }
-                    for detection in detections
-                ]
-                if rows:
-                    pd.DataFrame(rows).to_csv(
-                        log_csv,
-                        mode="a",
-                        header=False,
-                        index=False,
-                    )
-
-            if save_inference:
-                # Guarda una version anotada del frame procesado.
-                annotated_frame = yolo_model.draw_results(frame, yolo_results)
-                image_path = inference_dir / (
-                    f"{FRAME_FILENAME_PREFIX}{frame_id}" f"{FRAME_FILENAME_SUFFIX}"
+            try:
+                # Ejecuta inferencia y adapta el resultado a un formato simple.
+                frame = package["img"]
+                frame_id = package["frame_id"]
+                started_at = time.perf_counter()
+                yolo_results = yolo_model.predict(
+                    frame,
+                    confidence_threshold=confidence_threshold,
                 )
-                if not cv2.imwrite(str(image_path), annotated_frame):
-                    logger.warning(
-                        "No se pudo guardar la inferencia en %s",
-                        image_path,
+                detections = yolo_model.extract_detections(yolo_results)
+                latency_ms = (time.perf_counter() - started_at) * 1000.0
+
+                logger.debug(
+                    "Frame procesado stream_id=%s frame_id=%s detections=%s latency_ms=%.2f",
+                    stream_id,
+                    frame_id,
+                    len(detections),
+                    latency_ms,
+                )
+
+                # Publica el lote actual de detecciones en MQTT.
+                mqtt_client.publish(detections, frame_id=frame_id)
+
+                if save_log and log_csv is not None:
+                    # Añade una fila por deteccion al log tabular del stream.
+                    timestamp = time.time()
+                    rows = [
+                        {
+                            "timestamp": timestamp,
+                            "frame_id": frame_id,
+                            "class": str(detection["class_id"]),
+                            "confidence": str(detection["confidence"]),
+                            "bbox": str(detection["bbox"]),
+                            "mask": "present" if detection["mask"] else "None",
+                        }
+                        for detection in detections
+                    ]
+                    if rows:
+                        pd.DataFrame(rows).to_csv(
+                            log_csv,
+                            mode="a",
+                            header=False,
+                            index=False,
+                        )
+
+                if save_inference:
+                    # Guarda una version anotada del frame procesado.
+                    annotated_frame = yolo_model.draw_results(frame, yolo_results)
+                    image_path = inference_dir / (
+                        f"{FRAME_FILENAME_PREFIX}{frame_id}" f"{FRAME_FILENAME_SUFFIX}"
                     )
+                    if not cv2.imwrite(str(image_path), annotated_frame):
+                        logger.warning(
+                            "No se pudo guardar la inferencia stream_id=%s frame_id=%s path=%s",
+                            stream_id,
+                            frame_id,
+                            image_path,
+                        )
+            except Exception:
+                logger.exception(
+                    "Error durante el procesamiento del frame stream_id=%s frame_id=%s",
+                    stream_id,
+                    package.get("frame_id"),
+                )
     finally:
         # Cierra la conexion MQTT aunque el proceso termine por error.
         mqtt_client.disconnect()

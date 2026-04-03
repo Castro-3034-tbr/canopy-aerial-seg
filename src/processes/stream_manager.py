@@ -20,6 +20,8 @@ from src.core.data_init import init_project_data, init_shared_data
 from src.processes.processor_process import processor_process
 from src.processes.reader_process import reader_process
 
+logger = logging.getLogger(__name__)
+
 
 class StreamManager:
     """Manager del ciclo de vida de los procesos de lectura e inferencia de cada stream,
@@ -101,6 +103,7 @@ class StreamManager:
         )
         project_data.reader_process_running = True
         project_data.processor_process_running = True
+        project_data.stream_id = session_id
 
         # Construccion del proceso de lectura
         reader = multiprocessing.Process(
@@ -136,7 +139,11 @@ class StreamManager:
             # Si ocurre cualquier excepción durante el arranque de los procesos, se asegura que ambos procesos se detengan y se lanza una HTTPException con el error.
             project_data.reader_process_running = False
             project_data.processor_process_running = False
-            logging.exception("No se pudieron iniciar los procesos del stream")
+            logger.exception(
+                "No se pudieron iniciar los procesos del stream_id=%s rtsp_url=%s",
+                session_id,
+                rtsp_url,
+            )
             raise HTTPException(
                 status_code=500,
                 detail="No se pudieron iniciar los procesos del stream.",
@@ -273,8 +280,9 @@ class StreamManager:
             # Si el proceso no termina a tiempo, se fuerza su terminacion
             if process.is_alive():
                 logging.warning(
-                    "El proceso %s no terminó a tiempo; se fuerza terminate().",
+                    "El proceso %s del stream_id=%s no terminó a tiempo; se fuerza terminate().",
                     process.name,
+                    stream_id,
                 )
                 process.terminate()
                 process.join(timeout=timeout)

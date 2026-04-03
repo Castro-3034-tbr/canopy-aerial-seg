@@ -33,14 +33,16 @@ class MQTTClient:
         self._broker = broker
         self._port = port
         self.mqtt_client: mqtt.Client | None = None
+        self._publish_unavailable_logged = False
 
         try:
             # Inicializa el cliente y prepara los callbacks de estado.
             logger.info(
-                "Inicializando cliente MQTT con broker %s:%s y topic %s",
+                "Inicializando cliente MQTT con broker=%s puerto=%s topic=%s client_id=%s",
                 broker,
                 port,
                 topic,
+                client_id,
             )
             self.mqtt_client = mqtt.Client(client_id=client_id)
             self.mqtt_client.on_connect = self._on_connect
@@ -53,9 +55,12 @@ class MQTTClient:
             )
             self.mqtt_client.loop_start()
         except Exception as exc:
-            logger.warning(
-                "No se pudo inicializar MQTT: %s. " "El procesado continuara sin MQTT.",
-                exc,
+            logger.exception(
+                "No se pudo inicializar MQTT con broker=%s puerto=%s topic=%s. "
+                "El procesado continuara sin MQTT.",
+                broker,
+                port,
+                topic,
             )
             self.mqtt_enabled = False
 
@@ -73,15 +78,22 @@ class MQTTClient:
         if rc == 0:
             # Activa la publicacion solo si la conexion fue correcta.
             self.mqtt_enabled = True
+            self._publish_unavailable_logged = False
             logger.info(
-                "MQTT conectado a %s:%s con topic %s",
+                "MQTT conectado a broker=%s puerto=%s topic=%s",
                 self._broker,
                 self._port,
                 self.mqtt_topic,
             )
             return
 
-        logger.warning("Fallo de conexion MQTT con codigo %s", rc)
+        logger.warning(
+            "Fallo de conexion MQTT con broker=%s puerto=%s topic=%s codigo=%s",
+            self._broker,
+            self._port,
+            self.mqtt_topic,
+            rc,
+        )
 
     def _on_disconnect(
         self,
@@ -96,15 +108,26 @@ class MQTTClient:
         # Cualquier desconexion invalida temporalmente la publicacion.
         self.mqtt_enabled = False
         if rc != 0:
-            logger.warning("MQTT se ha desconectado de forma inesperada")
+            logger.warning(
+                "MQTT se ha desconectado de forma inesperada de broker=%s puerto=%s topic=%s",
+                self._broker,
+                self._port,
+                self.mqtt_topic,
+            )
 
-    def publish(self, payload: dict) -> None:
+    def publish(self, payload: dict, frame_id: int | None = None) -> None:
         """Publica un mensaje JSON en el topic configurado."""
         # Evita intentar publicar cuando el cliente aun no esta operativo.
         if not self.mqtt_enabled or self.mqtt_client is None:
-            logger.warning(
-                "El cliente MQTT no esta disponible. " "No se publicara el mensaje."
-            )
+            if not self._publish_unavailable_logged:
+                logger.info(
+                    "MQTT no disponible; se omiten publicaciones hasta nueva conexion "
+                    "(broker=%s puerto=%s topic=%s)",
+                    self._broker,
+                    self._port,
+                    self.mqtt_topic,
+                )
+                self._publish_unavailable_logged = True
             return
 
         try:
@@ -113,22 +136,35 @@ class MQTTClient:
             result = self.mqtt_client.publish(self.mqtt_topic, payload_json)
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
                 logger.warning(
-                    "No se pudo publicar el mensaje MQTT: %s",
+                    "No se pudo publicar el mensaje MQTT en broker=%s puerto=%s "
+                    "topic=%s frame_id=%s error=%s",
+                    self._broker,
+                    self._port,
+                    self.mqtt_topic,
+                    frame_id,
                     mqtt.error_string(result.rc),
                 )
                 return
 
-            logger.info(
-                "Mensaje MQTT publicado correctamente en %s",
+            self._publish_unavailable_logged = False
+            logger.debug(
+                "Mensaje MQTT publicado en topic=%s frame_id=%s",
                 self.mqtt_topic,
+                frame_id,
             )
-        except Exception as exc:
-            logger.warning("Error al publicar el mensaje MQTT: %s", exc)
+        except Exception:
+            logger.exception(
+                "Error al publicar MQTT en broker=%s puerto=%s topic=%s frame_id=%s",
+                self._broker,
+                self._port,
+                self.mqtt_topic,
+                frame_id,
+            )
 
     def disconnect(self) -> None:
         """Detiene el loop de red y desconecta el cliente MQTT."""
         if self.mqtt_client is None:
-            logger.warning("El cliente MQTT no estaba inicializado.")
+            logger.debug("El cliente MQTT no estaba inicializado.")
             return
 
         # Detiene el loop en segundo plano y libera la conexion activa.
