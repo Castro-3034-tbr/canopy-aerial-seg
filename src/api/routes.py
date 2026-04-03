@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, File, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
@@ -15,24 +15,22 @@ from src.core.constants import (
     DEFAULT_MQTT_TOPIC,
     DEFAULT_VIDEO_DOWNLOAD_STEM,
     DOCS_PATH,
-    HEALTH_OK_MESSAGE,
+    HEALTH_OK_MESSAGE
 )
+
+from src.api.request_validation import (
+    _require_runtime,
+    _validate_confidence_threshold,
+    _validate_mqtt_port,
+    _validate_rtsp_url,
+    _validate_upload_contents,
+    _detect_upload_kind
+)
+
 from src.utils.file_utils import process_image, process_video
 
 # Define las rutas para streaming y prediccion de archivos.
 router = APIRouter()
-
-
-def _require_runtime(request: Request) -> None:
-    """Comprueba que el runtime pesado de la aplicacion este disponible."""
-    if (
-        not hasattr(request.app.state, "stream_manager")
-        or not hasattr(request.app.state, "yolo_model")
-    ):
-        raise HTTPException(
-            status_code=503,
-            detail="La aplicacion aun no ha inicializado su runtime.",
-        )
 
 
 @router.post("/stream/start")
@@ -76,6 +74,10 @@ def start_stream(
 ) -> dict:
     """Inicia un nuevo stream RTSP para procesamiento en tiempo real."""
     _require_runtime(request)
+    _validate_confidence_threshold(confidence_threshold)
+    _validate_rtsp_url(rtsp_url)
+    _validate_mqtt_port(mqtt_port)
+
     # Delega el alta del stream en el gestor central de procesos.
     return request.app.state.stream_manager.start(
         stream_id=stream_id,
@@ -103,6 +105,7 @@ def stop_stream(
 ) -> dict:
     """Detiene un stream RTSP en ejecucion."""
     _require_runtime(request)
+
     # Si no llega identificador, el gestor detendra todos los streams.
     return request.app.state.stream_manager.stop(stream_id=stream_id)
 
@@ -123,11 +126,18 @@ async def predict_file(
 ) -> FileResponse:
     """Procesa una imagen o un video y devuelve el resultado anotado."""
     _require_runtime(request)
+    _validate_confidence_threshold(confidence_threshold)
+
     # Lee el contenido completo para derivarlo al pipeline adecuado.
     contents = await file.read()
+    await file.close()
+    upload_kind = _detect_upload_kind(file.content_type)
+    _validate_upload_contents(contents)
+
+    #Obtencion del modelo YOLO
     yolo_model = request.app.state.yolo_model
 
-    if file.content_type and file.content_type.startswith("image/"):
+    if upload_kind == "image":
         # Procesa imagenes y genera una salida JPEG anotada.
         output_path, media_type = process_image(
             yolo_model,
@@ -138,7 +148,7 @@ async def predict_file(
             f"{ANNOTATED_FILENAME_PREFIX}"
             f"{Path(file.filename or DEFAULT_IMAGE_DOWNLOAD_STEM).stem}.jpg"
         )
-    elif file.content_type and file.content_type.startswith("video/"):
+    else:
         # Procesa videos y conserva una salida MP4 anotada.
         output_path, media_type = process_video(
             yolo_model,
@@ -149,17 +159,6 @@ async def predict_file(
             f"{ANNOTATED_FILENAME_PREFIX}"
             f"{Path(file.filename or DEFAULT_VIDEO_DOWNLOAD_STEM).stem}.mp4"
         )
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Tipo de archivo no soportado. "
-                "Se esperaba una imagen o un video valido."
-            ),
-        )
-
-    # Cierra el archivo subido antes de devolver la respuesta.
-    await file.close()
 
     return FileResponse(
         path=output_path,
