@@ -9,14 +9,13 @@ def yolo_validate(
     output_path: str,
     config: ValidationConfig,
 ) -> YoloTaskResult:
-    """
-    Ejecuta la validación de un modelo YOLO.
+    """Ejecuta la validación de un modelo YOLO.
 
     Args:
         model: Instancia del modelo YOLO (ultralytics).
         data_path (str): Ruta al archivo data.yaml.
         output_path (str): Directorio base de salida.
-        config (ValidationConfig): Configuración de validación.
+        config (ValidationConfig): Configuración validada de validación.
 
     Returns:
         YoloTaskResult: Resultado devuelto por Ultralytics.

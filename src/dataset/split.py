@@ -6,14 +6,14 @@ from pathlib import Path
 from typing import Iterable
 
 
-def read_files(dataset_path: Path) -> list:
-    """Lectura de archivos del dataset.
+def read_files(dataset_path: Path) -> list[str]:
+    """Devuelve los nombres de archivo contenidos en un directorio.
 
     Args:
-        dataset_path (Path): Ruta al dataset original.
+        dataset_path (Path): Ruta del directorio a inspeccionar.
 
     Returns:
-        list: Lista de archivos en el dataset.
+        list[str]: Lista de nombres de archivo presentes en el directorio.
     """
     return [f.name for f in dataset_path.iterdir() if f.is_file()]
 
@@ -22,7 +22,7 @@ def make_pairs(
     images: Iterable[str],
     labels: Iterable[str],
 ) -> list[tuple[str, str]]:
-    """Empareja imagenes con etiquetas usando su nombre base.
+    """Empareja imágenes con etiquetas usando su nombre base.
 
     Utiliza un diccionario de búsqueda para evitar bucles anidados y
     solo devuelve pares donde ambos archivos existen.
@@ -51,20 +51,20 @@ def split_dataset(
     val_ratio: float = 0.2,
     test_ratio: float = 0.1,
 ) -> None:
-    """
-    Divide el dataset en conjuntos de entrenamiento, validacion y prueba.
+    """Divide un dataset YOLO en entrenamiento, validación y prueba.
 
     Args:
-        dataset_path (str): Ruta al dataset original.
-        output_path (str): Ruta donde se guardaran los conjuntos divididos.
-        train_ratio (float): Proporcion del conjunto de entrenamiento.
-        val_ratio (float): Proporcion del conjunto de validacion.
-        test_ratio (float): Proporcion del conjunto de prueba.
+        dataset_path (str): Ruta al directorio raíz del dataset.
+        output_path (str): Ruta donde se crearán los conjuntos divididos.
+        train_ratio (float): Proporción del conjunto de entrenamiento.
+        val_ratio (float): Proporción del conjunto de validación.
+        test_ratio (float): Proporción del conjunto de prueba.
 
     Raises:
         ValueError: Si las proporciones no suman 1.0 o si el dataset
-            esta vacio.
-        RuntimeError: Si ocurre un error durante la division del dataset.
+            está vacío.
+        RuntimeError: Si ocurre un error durante la lectura, mezcla
+            o copia de archivos.
     """
 
     dataset_root = Path(dataset_path)

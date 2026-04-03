@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class YoloPipeline:
-    """
-    Orquestador de tareas YOLO (train, validate, predict).
+    """Orquesta la ejecución de entrenamiento, validación y predicción.
 
     Esta clase coordina la ejecución de distintas etapas del flujo
     sin implementar lógica específica de cada tarea.
@@ -34,9 +33,10 @@ class YoloPipeline:
         data_path: str,
         output_path: str,
     ) -> None:
-        """
+        """Inicializa el pipeline.
+
         Args:
-            model: Modelo YOLO inicializado.
+            model: Modelo YOLO cargado con Ultralytics.
             data_path (str): Ruta al dataset (data.yaml).
             output_path (str): Ruta base de salida.
         """
@@ -45,14 +45,14 @@ class YoloPipeline:
         self.output_path = output_path
 
     def run(self, config: PipelineConfig) -> PipelineResults:
-        """
-        Ejecuta el pipeline según la configuración.
+        """Ejecuta las etapas activadas en la configuración.
 
         Args:
-            config (PipelineConfig): Configuración global del pipeline.
+            config (PipelineConfig): Configuración global validada
+                del pipeline.
 
         Returns:
-            PipelineResults: Resultados de cada etapa ejecutada.
+            PipelineResults: Resultados de las etapas ejecutadas.
         """
 
         results: PipelineResults = {}

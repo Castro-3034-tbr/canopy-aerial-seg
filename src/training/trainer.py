@@ -9,37 +9,27 @@ def yolo_train(
     output_path: str,
     config: TrainConfig,
 ) -> YoloTaskResult:
-    """
-    Ejecuta el entrenamiento de un modelo YOLO.
+    """Ejecuta el entrenamiento de un modelo YOLO.
 
     Args:
         model: Instancia del modelo YOLO (ultralytics).
         data_path (str): Ruta al archivo data.yaml.
         output_path (str): Directorio base de salida.
-        config (TrainConfig): Configuración de entrenamiento.
+        config (TrainConfig): Configuración validada de entrenamiento.
 
     Returns:
         YoloTaskResult: Resultado devuelto por Ultralytics.
 
     Raises:
-        ValueError: Si faltan parámetros obligatorios.
         RuntimeError: Si falla el entrenamiento.
     """
-
-    # Validación de parámetros obligatorios
-    if config.epochs is None:
-        raise ValueError("El parámetro 'epochs' es obligatorio en config.")
 
     # Creación de argumentos para el entrenamiento
     train_args: dict[str, object] = {
         "data": data_path,
         "epochs": config.epochs,
-        "batch": config.batch_size if config.batch_size is not None else (
-            config.batch_size if config.batch_size is not None else 16
-        ),
-        "imgsz": config.img_size if config.img_size is not None else (
-            config.img_size if config.img_size is not None else 640
-        ),
+        "batch": config.batch_size,
+        "imgsz": config.img_size,
         "device": config.device,
         "save_period": config.save_period,
         "seed": config.seed,
@@ -50,7 +40,7 @@ def yolo_train(
     }
 
     if not config.augmentation:
-        # Desactivar augmentations explícitamente
+        # Desactiva augmentations explícitamente cuando lo pide la config.
         train_args.update(
             {
                 "hsv_h": 0.0,
