@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Any, Dict
+import os
+import logging
 
-from src.utils.filesystem import clean_cache
+from src.inference.predictor import yolo_predict
 from src.training.trainer import yolo_train
 from src.training.validator import yolo_validate
-from src.inference.predictor import yolo_predict
+from src.utils.filesystem import clean_cache
+
+logger = logging.getLogger(__name__)
 
 
 class YoloPipeline:
@@ -44,17 +48,12 @@ class YoloPipeline:
         """
 
         results: Dict[str, Any] = {}
+        logger.info("Iniciando ejecución del pipeline YOLO.")
+        #Obtenemos el directorio del dataset
+        data_directory = os.path.dirname(self.data_path)
         
         # Limpieza de cache
-        clean_cache(directory=self.data_path)
-        
-        print("Tareas que se van a ejecutar:")
-        if config.get("task", {}).get("train", False):
-            print(" - Entrenamiento")
-        if config.get("task", {}).get("val", False):
-            print(" - Validación")
-        if config.get("task", {}).get("predict", False):
-            print(" - Predicción")
+        clean_cache(directory=data_directory)
 
         # Entreno del modelo
         if config.get("task", {}).get("train", False):
@@ -84,5 +83,10 @@ class YoloPipeline:
                 output_path=self.output_path,
                 config=config["predict"],
             )
+
+        # Muestra de resultados
+        logger.info("Resultados del pipeline:")
+        for stage, result in results.items():
+            logger.info(f" - {stage}: {result}")
 
         return results

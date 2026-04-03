@@ -18,29 +18,37 @@ def read_files(dataset_path: Path) -> list:
 
 
 def make_pairs(images: list, labels: list) -> list:
-    """Crea las parejas entre las imagenes y sus etiquetas correspondientes.
+    """Empareja archivos de imagen con sus etiquetas correspondientes por nombre base.
+
+    Utiliza un diccionario de búsqueda para lograr complejidad O(n+m) en lugar
+    del enfoque O(n*m) de bucles anidados. Solo se incluyen pares donde ambos
+    archivos existen.
 
     Args:
-        images (list): Lista de archivos de imagenes.
-        labels (list): Lista de archivos de etiquetas.
+        images (list): Lista de rutas (str o Path) de archivos de imagen.
+        labels (list): Lista de rutas (str o Path) de archivos de etiqueta.
+
     Returns:
-        list: Lista de tuplas (imagen, etiqueta).
+        list[tuple]: Lista de tuplas ``(imagen, etiqueta)`` para cada par válido.
+                    El orden sigue el de la lista ``images``.
+
+    Raises:
+        TypeError: Si ``images`` o ``labels`` no son iterables.
+
+    Example:
+        >>> images = ["data/cat.jpg", "data/dog.jpg", "data/bird.jpg"]
+        >>> labels = ["data/cat.txt", "data/dog.txt"]
+        >>> make_pairs(images, labels)
+        [('data/cat.jpg', 'data/cat.txt'), ('data/dog.jpg', 'data/dog.txt')]
     """
-    # Eliminacion de extensiones para crear conjuntos de nombres base
-    image_set = {Path(img).stem for img in images}
-    label_set = {Path(lbl).stem for lbl in labels}
+    # Diccionario stem -> ruta completa para O(1) lookup por nombre base
+    label_map: dict[str, any] = {Path(lbl).stem: lbl for lbl in labels}
 
-    # Encontrar archivos comunes entre imagenes y etiquetas
-    common_files = image_set.intersection(label_set)
-
-    # Guardado de las parejas (imagen, etiqueta) solo para los archivos comunes
-    pairs = []
-    for img in images:
-        for lbl in labels:
-            if Path(img).stem == Path(lbl).stem and Path(img).stem in common_files:
-                pairs.append((img, lbl))
-
-    return pairs
+    return [
+        (img, label_map[stem])
+        for img in images
+        if (stem := Path(img).stem) in label_map
+    ]
 
 
 def split_dataset(

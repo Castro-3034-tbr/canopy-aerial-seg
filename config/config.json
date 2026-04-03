@@ -6,7 +6,7 @@
     "task":{
         "train": true,
         "val": true,
-        "test": true
+        "predict": true
     },
 
     "model":{
@@ -33,7 +33,7 @@
         "workers": 4
     },
 
-    "test":{
+    "predict":{
         "batch_size": 2,
         "img_size": 640,
         "device": "cpu",

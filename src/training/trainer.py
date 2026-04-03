@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def yolo_train(
@@ -20,7 +20,7 @@ def yolo_train(
 
     Returns:
         Dict[str, Any]: Resultados del entrenamiento.
-    
+
     Raises:
         ValueError: Si faltan parámetros obligatorios.
         RuntimeError: Si falla el entrenamiento.
@@ -44,23 +44,25 @@ def yolo_train(
         "name": f"{output_path}/train",
         "mosaic": config.get("mosaic", False),
     }
-    
-    if config.get("augmentation", False):
+
+    if not config.get("augmentation", False):
         # Desactivar augmentations explícitamente
-        train_args.update({
-            "hsv_h": 0.0,
-            "hsv_s": 0.0,
-            "hsv_v": 0.0,
-            "degrees": 0.0,
-            "translate": 0.0,
-            "scale": 0.0,
-            "shear": 0.0,
-            "perspective": 0.0,
-            "flipud": 0.0,
-            "fliplr": 0.0,
-            "mosaic": 0.0,
-            "mixup": 0.0,
-        })
+        train_args.update(
+            {
+                "hsv_h": 0.0,
+                "hsv_s": 0.0,
+                "hsv_v": 0.0,
+                "degrees": 0.0,
+                "translate": 0.0,
+                "scale": 0.0,
+                "shear": 0.0,
+                "perspective": 0.0,
+                "flipud": 0.0,
+                "fliplr": 0.0,
+                "mosaic": 0.0,
+                "mixup": 0.0,
+            }
+        )
 
     # Ejecución del entrenamiento
     try:

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 from pathlib import Path
 from typing import List
 
@@ -88,8 +88,6 @@ def clean_cache(directory: str) -> None:
     remaining_cache = find_cache_files(directory)
 
     if remaining_cache:
-        logger.warning(
-            f"Quedan {len(remaining_cache)} archivos de cache sin eliminar."
-        )
+        logger.warning(f"Quedan {len(remaining_cache)} archivos de cache sin eliminar.")
     else:
         logger.info("Limpieza de cache completada correctamente.")

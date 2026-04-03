@@ -3,4 +3,4 @@ val: ../valid/images
 test: ../test/images
 
 nc: 3
-names: ['climbing-holds', 'floor', 'person']
+names: ["climbing-holds", "floor", "person"]
