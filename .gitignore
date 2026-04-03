@@ -8,3 +8,11 @@ config/__pycache__/
 models/
 utils/__pycache__/
 .trunk/
+data/**
+!data/data.yaml
+src/__pycache__/
+src/core/__pycache__/
+src/training/__pycache__/
+src/inference/__pycache__/
+src/utils/__pycache__/
+src/data/__pycache__/
