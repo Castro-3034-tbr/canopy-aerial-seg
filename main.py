@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 def main() -> int:
     """CLI minima para lanzar el pipeline desde terminal."""
 
-    #Configuracion de los elementos necesarios
+    # Configuracion de los elementos necesarios
     configure_logging()
     config = load_config("config/config.json")
 
-    #Resolucion de rutas
+    # Resolucion de rutas
     data_path = resolve_path(config.get("pathData"))
     output_path = resolve_path(
         config.get("pathResult"),
@@ -33,7 +33,7 @@ def main() -> int:
 
     logger.info(f"Rutas cargadas - Data: {data_path}, Output: {output_path}, Model: {model_path}")
 
-    #Carga del modelo
+    # Carga del modelo
     try:
         model = YOLO(model_path)
         logger.info(f"Modelo YOLO cargado exitosamente desde {model_path}")
@@ -41,7 +41,7 @@ def main() -> int:
         logger.exception(f"Error al cargar el modelo YOLO desde {model_path}: {exc}")
         return 1
 
-    #Creacion de la instancia del pipeline para ejecutarla completa
+    # Creacion de la instancia del pipeline para ejecutarla completa
     pipeline = YoloPipeline(
         model=model,
         data_path=str(data_path),
