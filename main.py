@@ -1,57 +1,63 @@
-from pathlib import Path
-import os
+"""Punto de entrada para ejecutar el pipeline de entrenamiento YOLO."""
+
+from __future__ import annotations
+
 import logging
-import json
-import sys
 
-from config.config import loadConfig
+from ultralytics import YOLO
 
-from utils.util_YOLO import YOLOTrainer
+from src.core.config import load_config
+from src.core.constants import PROJECT_ROOT
+from src.core.logger import configure_logging
+from src.training.pipeline import YoloPipeline
+from src.utils.filesystem import resolve_path
 
 
-
-#Definicion de rutas
-BASE_DIR = Path(__file__).parent
-CONFIG_PATH = BASE_DIR / "config" / "config.json"
-
-#Cargamos la configuración
-config = loadConfig(CONFIG_PATH)
-print("Configuración cargada:", config)
-
-# Configurar logging
-if not os.path.exists(config["pathLog"]):
-    os.mkdir(config["pathLog"])
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(config["pathLog"] + "/yolo_training.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
 logger = logging.getLogger(__name__)
 
-#Creacion de la clase de entrenamiento
-Yolo = YOLOTrainer(config["model"]["path"], config["pathData"], config["pathResult"], logger)
 
-#Analizamos las opciones 
-train = config["task"]["train"]
-val = config["task"]["val"]
-test = config["task"]["test"]
-logging.info(f"Opciones de tarea - Train: {train}, Val: {val}, Test: {test}")
+def main() -> int:
+    """CLI minima para lanzar el pipeline desde terminal."""
 
-if train:
-    logger.info("Iniciando entrenamiento...")
-    Yolo.train(config["training"])
-    logger.info("Entrenamiento finalizado")
+    #Configuracion de los elementos necesarios
+    configure_logging()
+    config = load_config("config/config.json")
 
-if val:
-    logger.info("Iniciando validación...")
-    Yolo.validate(config["validation"])
-    logger.info("Validación finalizada")
+    #Resolucion de rutas
+    data_path = resolve_path(config.get("pathData"))
+    output_path = resolve_path(
+        config.get("pathResult"),
+        default=PROJECT_ROOT / "results",
+    )
+    model_path = resolve_path(config.get("model", {}).get("path"))
 
-if test:
-    logger.info("Iniciando testing...")
-    test_config = config.get("testing", config.get("test", {}))
-    Yolo.test(test_config)
-    logger.info("Testing finalizado")
+    logger.info(f"Rutas cargadas - Data: {data_path}, Output: {output_path}, Model: {model_path}")
+
+    #Carga del modelo
+    try:
+        model = YOLO(model_path)
+        logger.info(f"Modelo YOLO cargado exitosamente desde {model_path}")
+    except Exception as exc:
+        logger.exception(f"Error al cargar el modelo YOLO desde {model_path}: {exc}")
+        return 1
+
+    #Creacion de la instancia del pipeline para ejecutarla completa
+    pipeline = YoloPipeline(
+        model=model,
+        data_path=str(data_path),
+        output_path=str(output_path),
+    )
+
+    try:
+        results = pipeline.run(config=config)
+    except Exception:
+        logger.exception("Fallo durante la ejecucion del pipeline.")
+        return 1
+
+    logger.info("Pipeline ejecutado exitosamente.")
+    logger.info(f"Etapas ejecutadas: {', '.join(results.keys()) or 'ninguna'}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
