@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict
-import os
 import logging
+import os
+from typing import Any, Dict
 
 from src.inference.predictor import yolo_predict
 from src.training.trainer import yolo_train
@@ -49,10 +49,8 @@ class YoloPipeline:
 
         results: Dict[str, Any] = {}
         logger.info("Iniciando ejecución del pipeline YOLO.")
-        #Obtenemos el directorio del dataset
+
         data_directory = os.path.dirname(self.data_path)
-        
-        # Limpieza de cache
         clean_cache(directory=data_directory)
 
         # Entreno del modelo

@@ -18,14 +18,17 @@ def resolve_path(value: str | None, *, default: Path | None = None) -> Path:
 
     Args:
         value (str | None): Ruta recibida desde configuracion.
-        default (Path | None): Ruta por defecto si ``value`` no viene informada.
+        default (Path | None): Ruta por defecto si ``value`` no viene
+            informada.
 
     Returns:
         Path: Ruta normalizada.
     """
     if value is None:
         if default is None:
-            raise ValueError("Se esperaba una ruta valida en la configuracion.")
+            raise ValueError(
+                "Se esperaba una ruta valida en la configuracion."
+            )
         return default
 
     path = Path(value)
@@ -88,6 +91,8 @@ def clean_cache(directory: str) -> None:
     remaining_cache = find_cache_files(directory)
 
     if remaining_cache:
-        logger.warning(f"Quedan {len(remaining_cache)} archivos de cache sin eliminar.")
+        logger.warning(
+            f"Quedan {len(remaining_cache)} archivos de cache sin eliminar."
+        )
     else:
         logger.info("Limpieza de cache completada correctamente.")

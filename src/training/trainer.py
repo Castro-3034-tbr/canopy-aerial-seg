@@ -70,4 +70,6 @@ def yolo_train(
         return results
 
     except Exception as exc:
-        raise RuntimeError(f"Error durante el entrenamiento YOLO: {exc}") from exc
+        raise RuntimeError(
+            f"Error durante el entrenamiento YOLO: {exc}"
+        ) from exc

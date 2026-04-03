@@ -31,7 +31,10 @@ def main() -> int:
     model_path = resolve_path(config.get("model", {}).get("path"))
 
     logger.info(
-        f"Rutas cargadas - Data: {data_path}, Output: {output_path}, Model: {model_path}"
+        "Rutas cargadas - Data: %s, Output: %s, Model: %s",
+        data_path,
+        output_path,
+        model_path,
     )
 
     # Carga del modelo
@@ -39,7 +42,11 @@ def main() -> int:
         model = YOLO(model_path)
         logger.info(f"Modelo YOLO cargado exitosamente desde {model_path}")
     except Exception as exc:
-        logger.exception(f"Error al cargar el modelo YOLO desde {model_path}: {exc}")
+        logger.exception(
+            "Error al cargar el modelo YOLO desde %s: %s",
+            model_path,
+            exc,
+        )
         return 1
 
     # Creacion de la instancia del pipeline para ejecutarla completa

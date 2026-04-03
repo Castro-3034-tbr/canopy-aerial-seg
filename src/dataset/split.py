@@ -3,13 +3,14 @@
 import random
 import shutil
 from pathlib import Path
+from typing import Iterable
 
 
 def read_files(dataset_path: Path) -> list:
     """Lectura de archivos del dataset.
 
     Args:
-        dataset_path (str): Ruta al dataset original.
+        dataset_path (Path): Ruta al dataset original.
 
     Returns:
         list: Lista de archivos en el dataset.
@@ -17,32 +18,24 @@ def read_files(dataset_path: Path) -> list:
     return [f.name for f in dataset_path.iterdir() if f.is_file()]
 
 
-def make_pairs(images: list, labels: list) -> list:
-    """Empareja archivos de imagen con sus etiquetas correspondientes por nombre base.
+def make_pairs(
+    images: Iterable[str],
+    labels: Iterable[str],
+) -> list[tuple[str, str]]:
+    """Empareja imagenes con etiquetas usando su nombre base.
 
-    Utiliza un diccionario de búsqueda para lograr complejidad O(n+m) en lugar
-    del enfoque O(n*m) de bucles anidados. Solo se incluyen pares donde ambos
-    archivos existen.
+    Utiliza un diccionario de búsqueda para evitar bucles anidados y
+    solo devuelve pares donde ambos archivos existen.
 
     Args:
-        images (list): Lista de rutas (str o Path) de archivos de imagen.
-        labels (list): Lista de rutas (str o Path) de archivos de etiqueta.
+        images (Iterable[str]): Lista de archivos de imagen.
+        labels (Iterable[str]): Lista de archivos de etiqueta.
 
     Returns:
-        list[tuple]: Lista de tuplas ``(imagen, etiqueta)`` para cada par válido.
-                    El orden sigue el de la lista ``images``.
-
-    Raises:
-        TypeError: Si ``images`` o ``labels`` no son iterables.
-
-    Example:
-        >>> images = ["data/cat.jpg", "data/dog.jpg", "data/bird.jpg"]
-        >>> labels = ["data/cat.txt", "data/dog.txt"]
-        >>> make_pairs(images, labels)
-        [('data/cat.jpg', 'data/cat.txt'), ('data/dog.jpg', 'data/dog.txt')]
+        list[tuple[str, str]]: Lista de tuplas ``(imagen, etiqueta)``.
     """
     # Diccionario stem -> ruta completa para O(1) lookup por nombre base
-    label_map: dict[str, any] = {Path(lbl).stem: lbl for lbl in labels}
+    label_map = {Path(lbl).stem: lbl for lbl in labels}
 
     return [
         (img, label_map[stem])
@@ -69,7 +62,8 @@ def split_dataset(
         test_ratio (float): Proporcion del conjunto de prueba.
 
     Raises:
-        ValueError: Si las proporciones no suman 1.0 o si el dataset esta vacio.
+        ValueError: Si las proporciones no suman 1.0 o si el dataset
+            esta vacio.
         RuntimeError: Si ocurre un error durante la division del dataset.
     """
 
@@ -90,12 +84,9 @@ def split_dataset(
     except Exception as exc:
         raise RuntimeError(f"Error al listar archivos del dataset: {exc}") from exc
 
-    # Mezaclamos los archivos para evitar sesgos
+    # Mezclamos los archivos para evitar sesgos
     try:
-        # Creacion de las parejas entre imagenes y etiquetas
         pairs = make_pairs(images, labels)
-
-        # Mezclado de la lista de parejas
         random.shuffle(pairs)
     except Exception as exc:
         raise RuntimeError(f"Error durante la mezcla de archivos: {exc}") from exc
@@ -111,36 +102,45 @@ def split_dataset(
         test_pairs = pairs[val_end:]
 
         # Creacion de directorios de salida
-        (output_root / "train" / "images").mkdir(parents=True, exist_ok=True)
-        (output_root / "train" / "labels").mkdir(parents=True, exist_ok=True)
-        (output_root / "val" / "images").mkdir(parents=True, exist_ok=True)
-        (output_root / "val" / "labels").mkdir(parents=True, exist_ok=True)
-        (output_root / "test" / "images").mkdir(parents=True, exist_ok=True)
-        (output_root / "test" / "labels").mkdir(parents=True, exist_ok=True)
+        for split_name in ("train", "val", "test"):
+            (output_root / split_name / "images").mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+            (output_root / split_name / "labels").mkdir(
+                parents=True,
+                exist_ok=True,
+            )
 
         # Copia de archivos a los directorios correspondientes
         for img, lbl in train_pairs:
             shutil.copy2(
-                dataset_root / "images" / img, output_root / "train" / "images" / img
+                dataset_root / "images" / img,
+                output_root / "train" / "images" / img,
             )
             shutil.copy2(
-                dataset_root / "labels" / lbl, output_root / "train" / "labels" / lbl
+                dataset_root / "labels" / lbl,
+                output_root / "train" / "labels" / lbl,
             )
 
         for img, lbl in val_pairs:
             shutil.copy2(
-                dataset_root / "images" / img, output_root / "val" / "images" / img
+                dataset_root / "images" / img,
+                output_root / "val" / "images" / img,
             )
             shutil.copy2(
-                dataset_root / "labels" / lbl, output_root / "val" / "labels" / lbl
+                dataset_root / "labels" / lbl,
+                output_root / "val" / "labels" / lbl,
             )
 
         for img, lbl in test_pairs:
             shutil.copy2(
-                dataset_root / "images" / img, output_root / "test" / "images" / img
+                dataset_root / "images" / img,
+                output_root / "test" / "images" / img,
             )
             shutil.copy2(
-                dataset_root / "labels" / lbl, output_root / "test" / "labels" / lbl
+                dataset_root / "labels" / lbl,
+                output_root / "test" / "labels" / lbl,
             )
 
     except Exception as exc:

@@ -1,7 +1,6 @@
 {
     "pathData": "./data/data.yaml",
     "pathResult": "./results",
-    "pathLog": "./logs",
 
     "task":{
         "train": true,
@@ -10,7 +9,6 @@
     },
 
     "model":{
-        "name": "YOLOv8m",
         "path": "./models/yolov8m.pt"
     },
 
@@ -34,9 +32,7 @@
     },
 
     "predict":{
-        "batch_size": 2,
         "img_size": 640,
-        "device": "cpu",
-        "workers": 4
+        "device": "cpu"
     }
 }
