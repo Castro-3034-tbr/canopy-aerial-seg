@@ -13,7 +13,7 @@ from src.core.constants import APP_DESCRIPTION, APP_TITLE, APP_VERSION
 from src.core.data_init import init_runtime_state
 from src.perception.yolo_inference import YoloInference
 from src.processes.stream_manager import StreamManager
-from src.utils.logger import configure_logging
+from core.logger import configure_logging
 
 
 def build_runtime() -> dict:
