@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Any, Callable
+from typing import Dict, Any
 
 from src.utils.filesystem import clean_cache
 from src.training.trainer import yolo_train
@@ -21,7 +21,6 @@ class YoloPipeline:
         model,
         data_path: str,
         output_path: str,
-        tasks: Dict[str, Callable] | None = None,
     ) -> None:
         """
         Args:
@@ -32,7 +31,6 @@ class YoloPipeline:
         self.model = model
         self.data_path = data_path
         self.output_path = output_path
-        self.tasks = tasks or {}
 
     def run(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """

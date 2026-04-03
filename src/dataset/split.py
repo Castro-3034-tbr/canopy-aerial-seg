@@ -4,6 +4,7 @@ import random
 import shutil
 from pathlib import Path
 
+
 def read_files(dataset_path: Path) -> list:
     """Lectura de archivos del dataset.
 
@@ -14,6 +15,7 @@ def read_files(dataset_path: Path) -> list:
         list: Lista de archivos en el dataset.
     """
     return [f.name for f in dataset_path.iterdir() if f.is_file()]
+
 
 def make_pairs(images: list, labels: list) -> list:
     """Crea las parejas entre las imagenes y sus etiquetas correspondientes.
@@ -27,17 +29,17 @@ def make_pairs(images: list, labels: list) -> list:
     # Eliminacion de extensiones para crear conjuntos de nombres base
     image_set = {Path(img).stem for img in images}
     label_set = {Path(lbl).stem for lbl in labels}
-    
+
     # Encontrar archivos comunes entre imagenes y etiquetas
     common_files = image_set.intersection(label_set)
-    
+
     # Guardado de las parejas (imagen, etiqueta) solo para los archivos comunes
     pairs = []
     for img in images:
         for lbl in labels:
             if Path(img).stem == Path(lbl).stem and Path(img).stem in common_files:
                 pairs.append((img, lbl))
-    
+
     return pairs
 
 
@@ -79,12 +81,12 @@ def split_dataset(
             raise ValueError("El dataset esta vacio")
     except Exception as exc:
         raise RuntimeError(f"Error al listar archivos del dataset: {exc}") from exc
-    
-    #Mezaclamos los archivos para evitar sesgos
+
+    # Mezaclamos los archivos para evitar sesgos
     try:
         # Creacion de las parejas entre imagenes y etiquetas
         pairs = make_pairs(images, labels)
-        
+
         # Mezclado de la lista de parejas
         random.shuffle(pairs)
     except Exception as exc:
@@ -110,16 +112,28 @@ def split_dataset(
 
         # Copia de archivos a los directorios correspondientes
         for img, lbl in train_pairs:
-            shutil.copy2(dataset_root / "images" / img, output_root / "train" / "images" / img)
-            shutil.copy2(dataset_root / "labels" / lbl, output_root / "train" / "labels" / lbl)
+            shutil.copy2(
+                dataset_root / "images" / img, output_root / "train" / "images" / img
+            )
+            shutil.copy2(
+                dataset_root / "labels" / lbl, output_root / "train" / "labels" / lbl
+            )
 
         for img, lbl in val_pairs:
-            shutil.copy2(dataset_root / "images" / img, output_root / "val" / "images" / img)
-            shutil.copy2(dataset_root / "labels" / lbl, output_root / "val" / "labels" / lbl)
+            shutil.copy2(
+                dataset_root / "images" / img, output_root / "val" / "images" / img
+            )
+            shutil.copy2(
+                dataset_root / "labels" / lbl, output_root / "val" / "labels" / lbl
+            )
 
         for img, lbl in test_pairs:
-            shutil.copy2(dataset_root / "images" / img, output_root / "test" / "images" / img)
-            shutil.copy2(dataset_root / "labels" / lbl, output_root / "test" / "labels" / lbl)
-        
+            shutil.copy2(
+                dataset_root / "images" / img, output_root / "test" / "images" / img
+            )
+            shutil.copy2(
+                dataset_root / "labels" / lbl, output_root / "test" / "labels" / lbl
+            )
+
     except Exception as exc:
         raise RuntimeError(f"Error durante la division del dataset: {exc}") from exc

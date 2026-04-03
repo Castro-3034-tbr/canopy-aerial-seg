@@ -64,7 +64,7 @@ def clean_cache(directory: str) -> None:
     """
     logger.info(f"Buscando archivos de cache en: {directory}")
 
-    #Busqua de archivos de cache
+    # Busqua de archivos de cache
     cache_paths = find_cache_files(directory)
 
     if not cache_paths:
