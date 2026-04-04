@@ -34,9 +34,10 @@ def make_pairs(
     Returns:
         list[tuple[str, str]]: Lista de tuplas ``(imagen, etiqueta)``.
     """
-    # Diccionario stem -> ruta completa para O(1) lookup por nombre base
+    # Construcción de un diccionario para búsqueda rápida de etiquetas por nombre base
     label_map = {Path(lbl).stem: lbl for lbl in labels}
 
+    # Imágenes sin etiqueta correspondiente quedan excluidas por el filtro
     return [
         (img, label_map[stem])
         for img in images
