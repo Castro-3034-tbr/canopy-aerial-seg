@@ -1,3 +1,5 @@
+# trunk-ignore-all(isort)
+# trunk-ignore-all(black)
 """Constantes compartidas usadas por la aplicacion."""
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ DEFAULT_API_PORT_KEY = "PORT"                     # Clave usada para leer el pue
 DEFAULT_QUEUE_SIZE = 30                           # Tamano maximo de la cola compartida de frames.
 PROCESS_JOIN_TIMEOUT = 5.0                        # Tiempo maximo de espera al detener procesos.
 FRAME_QUEUE_TIMEOUT_SECONDS = 1                   # Tiempo maximo de espera al leer un frame de la cola.
+FRAME_QUEUE_PUT_TIMEOUT_SECONDS = 1               # Tiempo maximo de espera al insertar un frame en la cola.
 RECONNECT_DELAY_SECONDS = 2                       # Pausa antes de reintentar la conexion RTSP.
 MIN_CONFIDENCE_THRESHOLD = 0.0                    # Valor minimo permitido para el umbral de confianza.
 MAX_CONFIDENCE_THRESHOLD = 1.0                    # Valor maximo permitido para el umbral de confianza.

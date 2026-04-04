@@ -1,3 +1,7 @@
+"""Validaciones compartidas para las rutas HTTP."""
+
+from __future__ import annotations
+
 from urllib.parse import urlparse
 
 from fastapi import HTTPException, Request
@@ -7,8 +11,10 @@ from src.core.constants import (
     MAX_TCP_PORT,
     MAX_UPLOAD_SIZE_BYTES,
     MIN_CONFIDENCE_THRESHOLD,
-    MIN_TCP_PORT
+    MIN_TCP_PORT,
 )
+from src.core.types import UploadKind
+
 
 def _require_runtime(request: Request) -> None:
     """Comprueba que el runtime pesado de la aplicacion este disponible."""
@@ -75,9 +81,9 @@ def _validate_rtsp_url(rtsp_url: str) -> None:
         )
 
 
-def _detect_upload_kind(content_type: str | None) -> str:
+def _detect_upload_kind(content_type: str | None) -> UploadKind:
     """Clasifica el tipo de archivo subido a partir del content type.
-    Args:        
+    Args:
         content_type (str | None): Valor del content type del archivo subido.
     Returns:
         str: "image" si es una imagen, "video" si es un video.

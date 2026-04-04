@@ -17,13 +17,14 @@ from src.core.constants import (
     TEMP_VIDEO_SUFFIX,
     VIDEO_MEDIA_TYPE,
 )
+from src.core.types import OutputPathResult, YoloModel
 
 
 def process_image(
-    yolo_model,
+    yolo_model: YoloModel,
     contents: bytes,
     confidence_threshold: float,
-) -> tuple[Path, str]:
+) -> OutputPathResult:
     """Procesa una imagen utilizando el modelo YOLO y devuelve la ruta del archivo temporal con la imagen anotada.
 
     Args:
@@ -46,6 +47,9 @@ def process_image(
             detail="No se pudo leer la imagen enviada.",
         )
 
+    # Conversión explícita a uint8 para que sea compatible con el modelo YOLO
+    frame = np.asarray(frame, dtype=np.uint8)
+
     # Realización de las predicciones utilizando el modelo YOLO y anotación de la imagen con los resultados
     results = yolo_model.predict(frame, confidence_threshold)
     annotated_frame = yolo_model.draw_results(frame, results)
@@ -66,10 +70,10 @@ def process_image(
 
 
 def process_video(
-    yolo_model,
+    yolo_model: YoloModel,
     contents: bytes,
     confidence_threshold: float,
-) -> tuple[Path, str]:
+) -> OutputPathResult:
     """Procesa un video utilizando el modelo YOLO y devuelve la ruta del archivo temporal con el video anotado.
 
     Args:
@@ -145,6 +149,9 @@ def process_video(
             success, frame = capture.read()
             if not success:
                 break
+
+            # Conversión explícita a uint8 para que sea compatible con el modelo YOLO
+            frame = np.asarray(frame, dtype=np.uint8)
 
             # Realización de las predicciones utilizando el modelo YOLO y anotación del frame con los resultados
             results = yolo_model.predict(frame, confidence_threshold)

@@ -21,20 +21,28 @@ from src.core.constants import (
     PROCESSOR_MQTT_CLIENT_ID,
 )
 
+from src.core.types import (
+    DetectionBatch,
+    FramePackage,
+    ProjectData,
+    SharedData,
+    YoloModel,
+)
+
 logger = logging.getLogger(__name__)
 
 
 def processor_process(
-    shared_data,
-    project_data,
-    save_log,
-    save_inference,
-    confidence_threshold,
-    mqtt_broker,
-    mqtt_port,
-    mqtt_topic,
-    yolo_model,
-):
+    shared_data: SharedData,
+    project_data: ProjectData,
+    save_log: bool,
+    save_inference: bool,
+    confidence_threshold: float,
+    mqtt_broker: str,
+    mqtt_port: int,
+    mqtt_topic: str,
+    yolo_model: YoloModel,
+) -> None:
     """Funcion principal del proceso de procesamiento de los frame de video,
     Se encarga:
         - Obtener el frame desde la cola compartida.
@@ -45,15 +53,15 @@ def processor_process(
         - Guardar las inferencias visuales en formato de imagen si se ha habilitado la opción de guardar inferencias.
 
     Args:
-        shared_data (Manager.Namespace): Datos compartidos entre procesos, incluyendo la cola de frames.
-        project_data (Manager.Namespace): Configuración y datos específicos del proyecto, como rutas de guardado y configuración del modelo.
+        shared_data (SharedData): Datos compartidos entre procesos, incluyendo la cola de frames.
+        project_data (ProjectData): Configuración y datos específicos del proyecto, como rutas de guardado y configuración del modelo.
         save_log (bool): Indicador para guardar logs.
         save_inference (bool): Indicador para guardar inferencias visuales.
         confidence_threshold (float): Umbral de confianza para filtrar detecciones.
         mqtt_broker (str): Dirección del broker MQTT.
         mqtt_port (int): Puerto del broker MQTT.
         mqtt_topic (str): Tema del broker MQTT.
-        yolo_model (YoloInference): Instancia del modelo de inferencia YOLO cargado.
+        yolo_model (YoloModel): Instancia del modelo de inferencia YOLO cargado.
     """
     stream_id = getattr(project_data, "stream_id", "unknown")
 
@@ -69,7 +77,7 @@ def processor_process(
     logs_dir = project_root / project_data.save_path_logs
     inference_dir = project_root / project_data.save_path_inference
 
-    log_csv = None
+    log_csv: Path | None = None
     if save_log:
         # Crea un CSV por ejecucion para persistir las detecciones del stream.
         log_csv = logs_dir / (
@@ -90,7 +98,7 @@ def processor_process(
         while project_data.processor_process_running.is_set():
             try:
                 # Espera un frame sin bloquear indefinidamente.
-                package = shared_data.frame_queue.get(
+                package: FramePackage = shared_data.frame_queue.get(
                     timeout=FRAME_QUEUE_TIMEOUT_SECONDS
                 )
             except queue.Empty:
@@ -111,7 +119,7 @@ def processor_process(
                     frame,
                     confidence_threshold=confidence_threshold,
                 )
-                detections = yolo_model.extract_detections(yolo_results)
+                detections: DetectionBatch = yolo_model.extract_detections(yolo_results)
                 latency_ms = (time.perf_counter() - started_at) * 1000.0
 
                 logger.debug(

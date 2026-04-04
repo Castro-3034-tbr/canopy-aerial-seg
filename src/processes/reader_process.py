@@ -13,11 +13,16 @@ from src.core.constants import (
     RECONNECT_DELAY_SECONDS,
     RTSP_OPTIONS,
 )
+from src.core.types import FramePackage, ProjectData, SharedData
 
 logger = logging.getLogger(__name__)
 
 
-def reader_process(shared_data, project_data, rtsp_url):
+def reader_process(
+    shared_data: SharedData,
+    project_data: ProjectData,
+    rtsp_url: str,
+) -> None:
     """Funcion principal del proceso de lectura de los frame de video,
     Se encarga de:
         - Conectarse a la fuente de video RTSP utilizando PyAV.
@@ -64,8 +69,8 @@ def reader_process(shared_data, project_data, rtsp_url):
                     break
 
                 # Guardado del frame y su informacion en la cola
-                package = {
-                    "img": frame.to_ndarray(format="bgr24"),
+                package: FramePackage = {
+                    "img": frame.to_ndarray(format="bgr24").astype("uint8"),
                     "frame_id": frame_counter,
                     "pts": frame.pts,
                     "width": frame.width,

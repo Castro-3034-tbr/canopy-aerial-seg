@@ -1,5 +1,7 @@
 """Cliente MQTT y utilidades de publicacion para el proyecto."""
 
+from __future__ import annotations
+
 import json
 import logging
 from typing import Any
@@ -7,6 +9,7 @@ from typing import Any
 import paho.mqtt.client as mqtt
 
 from src.core.constants import DEFAULT_MQTT_KEEPALIVE
+from src.core.types import DetectionBatch
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +57,7 @@ class MQTTClient:
                 keepalive=DEFAULT_MQTT_KEEPALIVE,
             )
             self.mqtt_client.loop_start()
-        except Exception as exc:
+        except Exception:
             logger.exception(
                 "No se pudo inicializar MQTT con broker=%s puerto=%s topic=%s. "
                 "El procesado continuara sin MQTT.",
@@ -115,7 +118,11 @@ class MQTTClient:
                 self.mqtt_topic,
             )
 
-    def publish(self, payload: dict, frame_id: int | None = None) -> None:
+    def publish(
+        self,
+        payload: DetectionBatch,
+        frame_id: int | None = None,
+    ) -> None:
         """Publica un mensaje JSON en el topic configurado."""
         # Evita intentar publicar cuando el cliente aun no esta operativo.
         if not self.mqtt_enabled or self.mqtt_client is None:

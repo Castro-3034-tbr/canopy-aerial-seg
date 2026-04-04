@@ -9,16 +9,30 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from src.core.constants import (
-    DEFAULT_MODEL_DEVICE,
-    DEFAULT_MODEL_PATH,
     PROCESS_JOIN_TIMEOUT,
     STREAM_START_SUCCESS_MESSAGE,
     STREAM_STOP_SUCCESS_MESSAGE,
     STREAMS_STOP_SUCCESS_MESSAGE,
 )
+
 from src.core.data_init import init_project_data, init_shared_data
 from src.processes.processor_process import processor_process
 from src.processes.reader_process import reader_process
+
+from src.core.types import (
+    GlobalManager,
+    MQTTConfig,
+    ModelConfig,
+    RuntimeState,
+    SavePathConfig,
+    StopAllStreamsResponse,
+    StreamHealth,
+    StreamSession,
+    StreamStartedResponse,
+    StreamStoppedResponse,
+    StreamsHealthResponse,
+    YoloModel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,27 +44,27 @@ class StreamManager:
 
     def __init__(
         self,
-        manager,
-        model_config: dict,
-        save_path_config: dict,
-        runtime_state,
-        yolo_model: object | None = None,
+        manager: GlobalManager,
+        model_config: ModelConfig,
+        save_path_config: SavePathConfig,
+        runtime_state: RuntimeState,
+        yolo_model: YoloModel,
     ) -> None:
         """Inicializa el StreamManager con la configuración del modelo, las rutas de guardado y el estado de ejecución compartido.
 
         Args:
-            manager (Manager): Instancia del Manager para la creación de datos compartidos entre procesos.
+            manager (GlobalManager): Instancia del GlobalManager para la creación de datos compartidos entre procesos.
             model_config (dict): Configuración del modelo, incluyendo la ruta al modelo YOLO y el dispositivo de inferencia.
             save_path_config (dict): Configuración de las rutas de guardado para logs e inferencias visuales.
-            runtime_state (Manager.Namespace): Estado de ejecución compartido a nivel de aplicación, incluyendo el número de streams activos.
-            yolo_model (object | None, optional): Instancia del modelo de inferencia YOLO para ser reutilizada en los procesos. Defaults to None.
+            runtime_state (runtimeState): Estado de ejecución compartido a nivel de aplicación, incluyendo el número de streams activos.
+            yolo_model (YoloModel): Instancia del modelo de inferencia YOLO para ser reutilizada en los procesos.
         """
 
         self.manager = manager
         self.model_config = model_config
         self.save_path_config = save_path_config
         self.runtime_state = runtime_state
-        self.sessions: dict[str, dict] = {}
+        self.sessions: dict[str, StreamSession] = {}
         self.yolo_model = yolo_model
 
     def start(
@@ -63,7 +77,7 @@ class StreamManager:
         mqtt_broker: str,
         mqtt_port: int,
         mqtt_topic: str,
-    ) -> dict:
+    ) -> StreamStartedResponse:
         """Inicio de los procesos de lectura e inferencia para un nuevo stream
 
         Args:
@@ -96,10 +110,10 @@ class StreamManager:
         shared_data = init_shared_data(self.manager)
         project_data = init_project_data(
             self.manager,
-            self.model_config.get("Path", DEFAULT_MODEL_PATH),
-            self.model_config.get("Device", DEFAULT_MODEL_DEVICE),
-            self.save_path_config.get("Logs", "logs/"),
-            self.save_path_config.get("Inference", "inference/"),
+            self.model_config["Path"],
+            self.model_config["Device"],
+            self.save_path_config["Logs"],
+            self.save_path_config["Inference"],
         )
         project_data.reader_process_running.set()
         project_data.processor_process_running.set()
@@ -159,6 +173,11 @@ class StreamManager:
             )
 
         # Guardado de la informacion de la sesion del stream
+        mqtt_config: MQTTConfig = {
+            "broker": mqtt_broker,
+            "port": mqtt_port,
+            "topic": mqtt_topic,
+        }
         self.sessions[session_id] = {
             "stream_id": session_id,
             "state": "running",
@@ -167,11 +186,7 @@ class StreamManager:
             "project_data": project_data,
             "reader_process": reader,
             "processor_process": processor,
-            "mqtt": {
-                "broker": mqtt_broker,
-                "port": mqtt_port,
-                "topic": mqtt_topic,
-            },
+            "mqtt": mqtt_config,
         }
         self.runtime_state.active_streams = len(self.sessions)
 
@@ -180,14 +195,14 @@ class StreamManager:
             "stream_id": session_id,
             "state": "running",
             "rtsp_url": rtsp_url,
-            "mqtt": self.sessions[session_id]["mqtt"],
+            "mqtt": mqtt_config,
         }
 
     def stop(
         self,
         stream_id: str | None = None,
         timeout: float = PROCESS_JOIN_TIMEOUT,
-    ) -> dict:
+    ) -> StreamStoppedResponse | StopAllStreamsResponse:
         """Parada de los procesos de lectura e inferencia para un stream específico o para todos los streams activos.
 
         Args:
@@ -229,7 +244,7 @@ class StreamManager:
             "state": stopped["state"],
         }
 
-    def health(self) -> dict:
+    def health(self) -> StreamsHealthResponse:
         """Proporciona información sobre el estado de los streams activos,
         incluyendo el número de streams activos, el estado de cada stream,
         la URL de RTSP y el estado de los procesos de lectura e inferencia.
@@ -240,18 +255,22 @@ class StreamManager:
         return {
             "active_streams": len(self.sessions),
             "streams": [
-                {
-                    "stream_id": session_id,
-                    "state": session["state"],
-                    "rtsp_url": session["rtsp_url"],
-                    "reader_alive": bool(session["reader_process"].is_alive()),
-                    "processor_alive": bool(session["processor_process"].is_alive()),
-                }
+                StreamHealth(
+                    stream_id=session_id,
+                    state=session["state"],
+                    rtsp_url=session["rtsp_url"],
+                    reader_alive=bool(session["reader_process"].is_alive()),
+                    processor_alive=bool(session["processor_process"].is_alive()),
+                )
                 for session_id, session in self.sessions.items()
             ],
         }
 
-    def _stop_one(self, stream_id: str, timeout: float) -> dict:
+    def _stop_one(
+        self,
+        stream_id: str,
+        timeout: float,
+    ) -> StreamStoppedResponse:
         """Parada de los procesos de lectura e inferencia para un stream especifico,
         incluyendo la señalización a los procesos para que se detengan, la espera de su finalización con un timeout,
         y la eliminación de la sesión del stream.
@@ -291,4 +310,8 @@ class StreamManager:
         del self.sessions[stream_id]
         self.runtime_state.active_streams = len(self.sessions)
 
-        return {"stream_id": stream_id, "state": "stopped"}
+        return {
+            "msg": STREAM_STOP_SUCCESS_MESSAGE,
+            "stream_id": stream_id,
+            "state": "stopped",
+        }

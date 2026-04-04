@@ -17,6 +17,7 @@ from src.core.constants import (
     MASK_OVERLAY_BETA,
     MASK_OVERLAY_GAMMA,
 )
+from src.core.types import DetectionBatch, FrameArray
 from src.perception.postprocessing import calculate_centroid, extract_vertices
 
 
@@ -31,15 +32,15 @@ class YoloInference:
 
     def predict(
         self,
-        frame: np.ndarray,
+        frame: FrameArray,
         confidence_threshold: float = 0.0,
         debug: bool = False,
-    ):
+    ) -> Any:
         """Realiza la inferencia sobre un frame."""
         # Mantiene la salida nativa de Ultralytics para reutilizar su API.
         return self.model(frame, conf=confidence_threshold, verbose=debug)
 
-    def extract_detections(self, results: Any) -> list[dict]:
+    def extract_detections(self, results: Any) -> DetectionBatch:
         """Adapta los resultados del modelo a un formato serializable."""
         # Si no hay resultados, devuelve una lista vacia compatible con JSON.
         if not results:
@@ -50,22 +51,16 @@ class YoloInference:
         boxes = result.boxes.xyxy.cpu().numpy()
         classes = result.boxes.cls.cpu().numpy()
         confidences = result.boxes.conf.cpu().numpy()
-        masks = (
-            result.masks.data.cpu().numpy()
-            if result.masks is not None
-            else []
-        )
+        masks = result.masks.data.cpu().numpy() if result.masks is not None else []
 
         detections = []
         # Convierte cada deteccion a tipos simples para serializacion.
         for index, class_id in enumerate(classes):
             confidence = float(confidences[index])
             mask_array = masks[index] if index < len(masks) else None
-            centroid = calculate_centroid(mask_array)
+            centroid = calculate_centroid(mask_array) if mask_array is not None else None
             vertices = (
-                extract_vertices(mask_array).tolist()
-                if mask_array is not None
-                else []
+                extract_vertices(mask_array) if mask_array is not None else []
             )
             detections.append(
                 {
@@ -78,13 +73,15 @@ class YoloInference:
                         else []
                     ),
                     "vertices": vertices,
-                    "centroid": list(centroid) if centroid is not None else [],
+                    "centroid": (
+                        [centroid.x, centroid.y] if centroid is not None else []
+                    ),
                 }
             )
 
         return detections
 
-    def draw_results(self, frame: np.ndarray, results: Any) -> np.ndarray:
+    def draw_results(self, frame: FrameArray, results: Any) -> FrameArray:
         """Dibuja mascaras y centroides sobre el frame original."""
         result = results[0]
         if result.masks is None or len(result.masks.data) == 0:
@@ -116,10 +113,12 @@ class YoloInference:
             if centroid is not None:
                 cv2.circle(
                     annotated_frame,
-                    centroid,
+                    (centroid.x, centroid.y),
                     CENTROID_RADIUS,
                     CENTROID_COLOR,
                     -1,
                 )
 
+        # Conversion del tipo de dato de annotated_frame a FrameArray para mantener la consistencia de tipos en la aplicacion
+        annotated_frame = annotated_frame.astype(np.uint8)
         return annotated_frame

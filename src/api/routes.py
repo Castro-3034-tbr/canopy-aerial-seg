@@ -8,6 +8,14 @@ from fastapi import APIRouter, File, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
+from src.api.request_validation import (
+    _detect_upload_kind,
+    _require_runtime,
+    _validate_confidence_threshold,
+    _validate_mqtt_port,
+    _validate_rtsp_url,
+    _validate_upload_contents,
+)
 from src.core.constants import (
     ANNOTATED_FILENAME_PREFIX,
     DEFAULT_CONFIDENCE_THRESHOLD,
@@ -15,18 +23,14 @@ from src.core.constants import (
     DEFAULT_MQTT_TOPIC,
     DEFAULT_VIDEO_DOWNLOAD_STEM,
     DOCS_PATH,
-    HEALTH_OK_MESSAGE
+    HEALTH_OK_MESSAGE,
 )
-
-from src.api.request_validation import (
-    _require_runtime,
-    _validate_confidence_threshold,
-    _validate_mqtt_port,
-    _validate_rtsp_url,
-    _validate_upload_contents,
-    _detect_upload_kind
+from src.core.types import (
+    HealthResponse,
+    StopAllStreamsResponse,
+    StreamStartedResponse,
+    StreamStoppedResponse,
 )
-
 from src.utils.file_utils import process_image, process_video
 
 # Define las rutas para streaming y prediccion de archivos.
@@ -71,7 +75,7 @@ def start_stream(
         alias="mqttTopic",
         description="Topic MQTT para publicar detecciones.",
     ),
-) -> dict:
+) -> StreamStartedResponse:
     """Inicia un nuevo stream RTSP para procesamiento en tiempo real."""
     _require_runtime(request)
     _validate_confidence_threshold(confidence_threshold)
@@ -102,7 +106,7 @@ def stop_stream(
             "Si no, detiene todos los activos."
         ),
     ),
-) -> dict:
+) -> StreamStoppedResponse | StopAllStreamsResponse:
     """Detiene un stream RTSP en ejecucion."""
     _require_runtime(request)
 
@@ -113,11 +117,7 @@ def stop_stream(
 @router.post("/predict/file")
 async def predict_file(
     request: Request,
-    file: UploadFile = File(
-        ...,
-        alias="file",
-        description="Archivo de imagen o video a procesar.",
-    ),
+    file: UploadFile | None = None,
     confidence_threshold: float = Query(
         default=DEFAULT_CONFIDENCE_THRESHOLD,
         alias="confidenceThreshold",
@@ -125,6 +125,13 @@ async def predict_file(
     ),
 ) -> FileResponse:
     """Procesa una imagen o un video y devuelve el resultado anotado."""
+    if file is None:
+        file = File(
+            ...,
+            alias="file",
+            description="Archivo de imagen o video a procesar.",
+        )
+        raise ValueError("El campo 'file' es obligatorio.")
     _require_runtime(request)
     _validate_confidence_threshold(confidence_threshold)
 
@@ -134,7 +141,7 @@ async def predict_file(
     upload_kind = _detect_upload_kind(file.content_type)
     _validate_upload_contents(contents)
 
-    #Obtencion del modelo YOLO
+    # Obtencion del modelo YOLO
     yolo_model = request.app.state.yolo_model
 
     if upload_kind == "image":
@@ -169,7 +176,7 @@ async def predict_file(
 
 
 @router.get("/health")
-def health(request: Request) -> dict:
+def health(request: Request) -> HealthResponse:
     """Verifica el estado de la API y del gestor de streams."""
     _require_runtime(request)
     # Expone tanto el estado general como el detalle de los streams activos.

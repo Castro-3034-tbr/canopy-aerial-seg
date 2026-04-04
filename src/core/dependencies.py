@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from multiprocessing import Manager
+from typing import AsyncIterator, cast
 
 from fastapi import FastAPI
 
@@ -11,29 +12,30 @@ from src.api.routes import router
 from src.core.config import load_config
 from src.core.constants import APP_DESCRIPTION, APP_TITLE, APP_VERSION
 from src.core.data_init import init_runtime_state
+from src.core.types import AppRuntime, GlobalManager
 from src.perception.yolo_inference import YoloInference
 from src.processes.stream_manager import StreamManager
-from core.logger import configure_logging
+from src.core.logger import configure_logging
 
 
-def build_runtime() -> dict:
+def build_runtime() -> AppRuntime:
     """Construye el estado compartido y los componentes principales."""
     # Configura el logging antes de inicializar el resto del runtime.
     configure_logging()
     # Carga la configuracion persistida del proyecto.
     config = load_config()
     # Crea el gestor de objetos compartidos para los procesos hijos.
-    manager = Manager()
+    manager = cast(GlobalManager, Manager())
     runtime_state = init_runtime_state(manager)
 
     # Extrae los bloques de configuracion que usan el modelo y las salidas.
-    save_path_config = config.get("SavePath", {})
-    model_config = config.get("Model", {})
+    save_path_config = config["SavePath"]
+    model_config = config["Model"]
 
     # Construye el modelo una sola vez para reutilizarlo en la aplicacion.
     yolo_model = YoloInference(
-        model_config.get("Path"),
-        model_config.get("Device", "cpu"),
+        model_config["Path"],
+        model_config["Device"],
     )
     # Crea el gestor responsable de arrancar y detener streams.
     stream_manager = StreamManager(
@@ -65,7 +67,7 @@ def shutdown_runtime(app: FastAPI) -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Inicializa y libera el runtime pesado durante el ciclo de vida."""
     runtime = build_runtime()
 
