@@ -21,10 +21,10 @@ from src.processes.reader_process import reader_process
 
 from src.core.types import (
     GlobalManager,
+    ModelConfigModel,
     MQTTConfig,
-    ModelConfig,
     RuntimeState,
-    SavePathConfig,
+    SavePathConfigModel,
     StopAllStreamsResponse,
     StreamHealth,
     StreamSession,
@@ -45,8 +45,8 @@ class StreamManager:
     def __init__(
         self,
         manager: GlobalManager,
-        model_config: ModelConfig,
-        save_path_config: SavePathConfig,
+        model_config: ModelConfigModel,
+        save_path_config: SavePathConfigModel,
         runtime_state: RuntimeState,
         yolo_model: YoloModel,
     ) -> None:
@@ -110,10 +110,10 @@ class StreamManager:
         shared_data = init_shared_data(self.manager)
         project_data = init_project_data(
             self.manager,
-            self.model_config["Path"],
-            self.model_config["Device"],
-            self.save_path_config["Logs"],
-            self.save_path_config["Inference"],
+            self.model_config.Path,
+            self.model_config.Device,
+            str(self.save_path_config.Logs),
+            str(self.save_path_config.Inference),
         )
         project_data.reader_process_running.set()
         project_data.processor_process_running.set()

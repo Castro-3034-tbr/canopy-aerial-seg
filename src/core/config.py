@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import cast
 
 from pydantic import ValidationError
 
 from src.core.constants import DEFAULT_CONFIG_PATH
-from src.core.types import AppConfig, AppConfigModel
+from src.core.types import AppConfigModel
 
 
-def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfig:
+def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfigModel:
     """Carga la configuracion de la aplicacion desde un archivo JSON.
 
     Args:
@@ -23,7 +22,7 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfig:
         ValueError: Si el JSON no es valido o no contiene un objeto.
 
     Returns:
-        dict: Configuracion cargada desde disco.
+        AppConfigModel: Configuracion cargada y validada desde disco.
     """
     # Normaliza la ruta para trabajar siempre con objetos Path.
     config_path = Path(path)
@@ -50,8 +49,7 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfig:
 
     # Valida estructura, tipos y restricciones de la configuracion.
     try:
-        validated_config = AppConfigModel.model_validate(config)
-        return cast(AppConfig, validated_config.model_dump())
+        return AppConfigModel.model_validate(config)
     except ValidationError as exc:
         raise ValueError(
             f"Error de validacion en la configuracion: {exc}"

@@ -45,10 +45,10 @@ class ModelConfigModel(StrictModel):
     """Configuracion validable del modelo YOLO."""
 
     Name: str = Field(min_length=1)
-    Path: str = Field(min_length=1)
+    Path: FilePath
     Device: str = Field(min_length=1)
 
-    @field_validator("Name", "Path", "Device")
+    @field_validator("Name", "Device")
     @classmethod
     def validate_model_field(cls, value: str) -> str:
         """Evita campos vacios en la configuracion del modelo."""
@@ -57,11 +57,32 @@ class ModelConfigModel(StrictModel):
             raise ValueError("Los campos del modelo no pueden estar vacios.")
         return normalized
 
+    @field_validator("Path")
+    @classmethod
+    def validate_model_path(cls, value: Path) -> Path:
+        """Asegura que la ruta del modelo exista y no sea vacia."""
+        if not str(value).strip():
+            raise ValueError("La ruta del modelo no puede estar vacia.")
+        return value
+
 
 class RtspURLModel(StrictModel):
     """Representacion validable de una URL RTSP."""
 
     url: str
+
+    @field_validator("url")
+    @classmethod
+    def validate_rtsp_url(cls, value: str) -> str:
+        """Valida que la URL tenga formato RTSP."""
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("La URL RTSP no puede estar vacia.")
+        if not normalized.lower().startswith("rtsp://"):
+            raise ValueError("La URL debe comenzar con 'rtsp://'.")
+        if normalized.count(":") < 2:
+            raise ValueError("La URL RTSP debe contener IP y puerto.")
+        return normalized
 
 
 class ApiConfigModel(StrictModel):
@@ -77,23 +98,25 @@ class ApiConfigModel(StrictModel):
         normalized = value.strip()
         if not normalized:
             raise ValueError("La IP de la API no puede estar vacia.")
+        if normalized.lower() != "localhost" and not normalized.count(".") == 3:
+            raise ValueError("La IP de la API debe ser 'localhost' o una direccion IPv4.")
         return normalized
 
 
 class SavePathConfigModel(StrictModel):
     """Configuracion validable de rutas de salida."""
 
-    Logs: str = Field(min_length=1)
-    Inference: str = Field(min_length=1)
+    Logs: Path
+    Inference: Path
 
     @field_validator("Logs", "Inference")
     @classmethod
-    def validate_output_path(cls, value: str) -> str:
+    def validate_output_path(cls, value: Path) -> Path:
         """Evita rutas vacias en la configuracion."""
-        normalized = value.strip()
+        normalized = str(value).strip()
         if not normalized:
             raise ValueError("Las rutas de salida no pueden estar vacias.")
-        return normalized
+        return value
 
 
 class AppConfigModel(StrictModel):
@@ -111,37 +134,6 @@ BoundingBoxList: TypeAlias = list[BoundingBox]
 CentroidList: TypeAlias = list[Coordinates]
 UploadKind: TypeAlias = Literal["image", "video"]
 StreamState: TypeAlias = Literal["running", "stopped", "stopping"]
-
-
-class ApiConfig(TypedDict):
-    """Bloque de configuracion HTTP."""
-
-    IP: str
-    PORT: int
-
-
-class SavePathConfig(TypedDict):
-    """Rutas de persistencia de resultados."""
-
-    Logs: str
-    Inference: str
-
-
-class ModelConfig(TypedDict):
-    """Configuracion operacional del modelo YOLO."""
-
-    Name: str
-    Path: str
-    Device: str
-
-
-class AppConfig(TypedDict):
-    """Configuracion raiz cargada desde JSON."""
-
-    API: ApiConfig
-    SavePath: SavePathConfig
-    Model: ModelConfig
-    
 
 
 class FramePackage(TypedDict):
@@ -250,7 +242,7 @@ class HealthResponse(TypedDict):
 class AppRuntime(TypedDict):
     """Objetos compartidos durante la vida de la aplicacion."""
 
-    config: AppConfig
+    config: AppConfigModel
     manager: "GlobalManager"
     runtime_state: "RuntimeState"
     yolo_model: "YoloModel"

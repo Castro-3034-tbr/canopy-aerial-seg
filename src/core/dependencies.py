@@ -29,13 +29,13 @@ def build_runtime() -> AppRuntime:
     runtime_state = init_runtime_state(manager)
 
     # Extrae los bloques de configuracion que usan el modelo y las salidas.
-    save_path_config = config["SavePath"]
-    model_config = config["Model"]
+    save_path_config = config.SavePath
+    model_config = config.Model
 
     # Construye el modelo una sola vez para reutilizarlo en la aplicacion.
     yolo_model = YoloInference(
-        model_config["Path"],
-        model_config["Device"],
+        model_config.Path,
+        model_config.Device,
     )
     # Crea el gestor responsable de arrancar y detener streams.
     stream_manager = StreamManager(

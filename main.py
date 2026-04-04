@@ -9,26 +9,27 @@ import uvicorn
 from src.core.config import load_config
 from src.core.constants import DEFAULT_API_HOST_KEY, DEFAULT_API_PORT_KEY
 from src.core.dependencies import create_app
+from src.core.types import ApiConfigModel
 
 # Expone una app ligera; el runtime pesado se construye en startup.
 app = create_app()
 
 
-def _is_reload_enabled(api_config: dict[object, object]) -> bool:
+def _is_reload_enabled(api_config: ApiConfigModel) -> bool:
     """Determina si Uvicorn debe reiniciarse al detectar cambios."""
     reload_from_env = os.getenv("TFM_API_RELOAD")
     if reload_from_env is not None:
         return reload_from_env.strip().lower() in {"1", "true", "yes", "on"}
 
-    return bool(api_config.get("RELOAD", False))
+    return bool(getattr(api_config, "RELOAD", False))
 
 
 def main() -> None:
     """Inicia Uvicorn con la configuracion declarada en disco."""
     # Obtiene la configuracion de la API desde el archivo principal.
-    api_config = load_config().get("API", {})
-    api_host = api_config.get(DEFAULT_API_HOST_KEY)
-    api_port = api_config.get(DEFAULT_API_PORT_KEY)
+    api_config = load_config().API
+    api_host = getattr(api_config, DEFAULT_API_HOST_KEY)
+    api_port = getattr(api_config, DEFAULT_API_PORT_KEY)
 
     if not api_host or not api_port:
         raise ValueError(
