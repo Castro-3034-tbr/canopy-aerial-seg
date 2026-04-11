@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import multiprocessing
 from uuid import uuid4
+import ultralytics
 
 from fastapi import HTTPException
 
@@ -31,7 +32,6 @@ from src.core.types import (
     StreamStartedResponse,
     StreamStoppedResponse,
     StreamsHealthResponse,
-    YoloModel,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class StreamManager:
         model_config: ModelConfigModel,
         save_path_config: SavePathConfigModel,
         runtime_state: RuntimeState,
-        yolo_model: YoloModel,
+        yolo_model: ultralytics.YOLO,
     ) -> None:
         """Inicializa el StreamManager con la configuración del modelo, las rutas de guardado y el estado de ejecución compartido.
 
@@ -57,7 +57,7 @@ class StreamManager:
             model_config (dict): Configuración del modelo, incluyendo la ruta al modelo YOLO y el dispositivo de inferencia.
             save_path_config (dict): Configuración de las rutas de guardado para logs e inferencias visuales.
             runtime_state (runtimeState): Estado de ejecución compartido a nivel de aplicación, incluyendo el número de streams activos.
-            yolo_model (YoloModel): Instancia del modelo de inferencia YOLO para ser reutilizada en los procesos.
+            yolo_model (ultralytics.YOLO): Instancia del modelo de inferencia YOLO para ser reutilizada en los procesos.
         """
 
         self.manager = manager

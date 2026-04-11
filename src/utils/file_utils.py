@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+import ultralytics
+
 import cv2
 import numpy as np
 from fastapi import HTTPException
@@ -17,11 +19,13 @@ from src.core.constants import (
     TEMP_VIDEO_SUFFIX,
     VIDEO_MEDIA_TYPE,
 )
-from src.core.types import OutputPathResult, YoloModel
+from src.core.types import OutputPathResult
+
+from src.perception.yolo_inference import predict, draw_results
 
 
 def process_image(
-    yolo_model: YoloModel,
+    yolo_model: ultralytics.YOLO,
     contents: bytes,
     confidence_threshold: float,
 ) -> OutputPathResult:
@@ -51,8 +55,8 @@ def process_image(
     frame = np.asarray(frame, dtype=np.uint8)
 
     # Realización de las predicciones utilizando el modelo YOLO y anotación de la imagen con los resultados
-    results = yolo_model.predict(frame, confidence_threshold)
-    annotated_frame = yolo_model.draw_results(frame, results)
+    results = predict(model=yolo_model, frame=frame, confidence_threshold=confidence_threshold)
+    annotated_frame = draw_results(frame=frame, results=results)
 
     # Creación de un archivo temporal para guardar la imagen anotada
     with NamedTemporaryFile(delete=False, suffix=TEMP_IMAGE_SUFFIX) as output_file:
@@ -70,7 +74,7 @@ def process_image(
 
 
 def process_video(
-    yolo_model: YoloModel,
+    yolo_model: ultralytics.YOLO,
     contents: bytes,
     confidence_threshold: float,
 ) -> OutputPathResult:
@@ -154,8 +158,8 @@ def process_video(
             frame = np.asarray(frame, dtype=np.uint8)
 
             # Realización de las predicciones utilizando el modelo YOLO y anotación del frame con los resultados
-            results = yolo_model.predict(frame, confidence_threshold)
-            annotated_frame = yolo_model.draw_results(frame, results)
+            results = predict(model=yolo_model, frame=frame, confidence_threshold=confidence_threshold)
+            annotated_frame = draw_results(frame=frame, results=results)
 
             # Escritura del frame anotado en el video de salida
             writer.write(annotated_frame)

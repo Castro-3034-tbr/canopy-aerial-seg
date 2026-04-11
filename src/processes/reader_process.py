@@ -35,8 +35,6 @@ def reader_process(
         rtsp_url (str): URL de la fuente de video RTSP.
     """
 
-    stream_id = getattr(project_data, "stream_id", "unknown")
-
     # Contador de frames para asignar un ID único a cada frame leído
     frame_counter = 0
 
@@ -56,7 +54,7 @@ def reader_process(
             fps = float(stream.average_rate) if stream.average_rate else None
             logger.info(
                 "Stream RTSP conectado stream_id=%s rtsp_url=%s timebase=%s fps=%s",
-                stream_id,
+                project_data.stream_id,
                 rtsp_url,
                 timebase,
                 fps,
@@ -69,13 +67,13 @@ def reader_process(
                     break
 
                 # Guardado del frame y su informacion en la cola
-                package: FramePackage = {
-                    "img": frame.to_ndarray(format="bgr24").astype("uint8"),
-                    "frame_id": frame_counter,
-                    "pts": frame.pts,
-                    "width": frame.width,
-                    "height": frame.height,
-                }
+                package: FramePackage = FramePackage(
+                    img=frame.to_ndarray(format="bgr24").astype("uint8"),
+                    frame_id=frame_counter,
+                    pts=frame.pts,
+                    width=frame.width,
+                    height=frame.height,
+                )
                 try:
                     shared_data.frame_queue.put(
                         package,
@@ -85,14 +83,14 @@ def reader_process(
                     # Mantiene el stream vivo priorizando los frames mas recientes.
                     try:
                         dropped_package = shared_data.frame_queue.get_nowait()
-                        dropped_frame_id = dropped_package.get("frame_id")
+                        dropped_frame_id = dropped_package.frame_id
                     except queue.Empty:
                         dropped_frame_id = None
 
                     logger.warning(
                         "Cola de frames llena; se descarta el frame mas antiguo "
                         "stream_id=%s dropped_frame_id=%s new_frame_id=%s",
-                        stream_id,
+                        project_data.stream_id,
                         dropped_frame_id,
                         frame_counter,
                     )
@@ -102,7 +100,7 @@ def reader_process(
                         logger.warning(
                             "No se pudo insertar el nuevo frame tras descartar uno "
                             "stream_id=%s frame_id=%s",
-                            stream_id,
+                            project_data.stream_id,
                             frame_counter,
                         )
                         continue
@@ -113,7 +111,7 @@ def reader_process(
                 logger.info(
                     "Stream RTSP finalizado; se reintentara la conexion "
                     "stream_id=%s rtsp_url=%s",
-                    stream_id,
+                    project_data.stream_id,
                     rtsp_url,
                 )
                 time.sleep(RECONNECT_DELAY_SECONDS)
@@ -121,7 +119,7 @@ def reader_process(
             logger.exception(
                 "Lectura RTSP fallida; se reintentara la conexion "
                 "stream_id=%s rtsp_url=%s",
-                stream_id,
+                project_data.stream_id,
                 rtsp_url,
             )
             time.sleep(RECONNECT_DELAY_SECONDS)
