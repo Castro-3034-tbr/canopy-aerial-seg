@@ -145,27 +145,3 @@ class YoloInference:
                 2,
             )
         return np.asarray(frame, dtype=np.uint8)
-
-
-if __name__ == "__main__":
-    # Prueba de la clase YoloInference con un frame de ejemplo.
-    project_root = Path(__file__).resolve().parents[2]
-    model_path = project_root / "models" / "yolo26n-seg.pt"
-    yolo_inference = YoloInference(str(model_path))
-
-    # Abrimos la camara y procesamos un frame de prueba.
-    cap = cv2.VideoCapture(1)
-
-
-    ret, frame = cap.read()
-
-    #Conversion del frame a un formato compatible con el modelo y la API.
-    frame = np.asarray(frame, dtype=np.uint8)
-
-    detections = yolo_inference.predict(frame, confidence_threshold=0.5)
-    annotated_frame = yolo_inference.draw_results(frame, detections)
-
-    cv2.imshow("YOLO Inference", annotated_frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        cap.release()
-        cv2.destroyAllWindows()

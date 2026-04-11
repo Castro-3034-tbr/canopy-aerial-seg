@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import cv2
 import numpy as np
 
 from src.core.constants import DEFAULT_MASK_THRESHOLD
-from src.core.types import Coordinates, Polygon, FrameMask, MaskMetric
+from src.core.types import Coordinates, Polygon, FrameMask, MaskMetric, Detection
 
 
 def calculate_centroid(polygon: Polygon) -> Coordinates:
@@ -88,3 +90,26 @@ def process_mask(masks: FrameMask, gsd: float) -> list[MaskMetric]:
         )
 
     return mask_metrics
+
+
+def convert_detections_to_json(detections: list[Detection], frame_id: int | None) -> dict[str, Any]:
+    """Convierte las detecciones a un formato JSON serializable."""
+    if frame_id is not None:
+        json_detections: dict[str, Any] = {"frame_id": frame_id}
+    else:
+        json_detections = {}
+    for i , det in enumerate(detections):
+        json_detections[f"detection_{i}"] = {
+            "class_id": det.class_id,
+            "confidence": det.confidence,
+            "bbox": {
+                "p1": {"x": det.bbox.p1.x, "y": det.bbox.p1.y},
+                "p2": {"x": det.bbox.p2.x, "y": det.bbox.p2.y},
+                "width": det.bbox.width,
+                "height": det.bbox.height,
+            },
+            "mask": [{"x": point.x, "y": point.y} for point in det.mask],
+            "centroid": {"x": det.centroid.x, "y": det.centroid.y},
+        }
+
+    return json_detections
