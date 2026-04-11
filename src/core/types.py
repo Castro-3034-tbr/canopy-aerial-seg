@@ -4,35 +4,60 @@ from __future__ import annotations
 
 from multiprocessing import Process
 from pathlib import Path
-from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
+from typing import Annotated, Any, Literal, Protocol, TypeAlias, runtime_checkable
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import BaseModel, ConfigDict, Field, FilePath, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+    field_validator,
+)
 from typing_extensions import TypedDict
 
 
 class StrictModel(BaseModel):
     """Modelo base de Pydantic que rechaza campos no declarados."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
 
 class Coordinates(StrictModel):
-    """Coordenadas enteras de un punto 2D."""
+    """Coordenadas normalizadas de un punto en el rango [0, 1]."""
 
-    x: int
-    y: int
+    x: float = Field(ge=0.0, le=1.0)
+    y: float = Field(ge=0.0, le=1.0)
 
-
+Polygon: TypeAlias = list[Coordinates]
 class BoundingBox(StrictModel):
-    """Coordenadas de una caja delimitadora."""
+    """Caja envolvente derivada de un polígono en coordenadas normalizadas."""
 
-    x1: float
-    y1: float
-    x2: float
-    y2: float
+    p1: Coordinates
+    p2: Coordinates
 
+    width: float = Field(ge=0.0)
+    height: float = Field(ge=0.0)
+
+    @field_validator("width", "height")
+    @classmethod
+    def validar_dimension(cls, value: float) -> float:
+        """Evita dimensiones negativas por redondeo."""
+        return max(0.0, value)
+
+Mask: TypeAlias = list[Coordinates]
+FrameMask: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
+
+class Detection(StrictModel):
+    """Estructura de una deteccion serializable."""
+
+    class_id: int
+    confidence: float = Field(ge=0.0, le=1.0)
+    bbox: BoundingBox
+    mask: Mask
+    frame_mask: FrameMask
+    centroid: Coordinates
 
 class OutputFile(StrictModel):
     """Metadatos de un archivo de salida generado por la API."""
