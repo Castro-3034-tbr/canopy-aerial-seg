@@ -8,14 +8,9 @@ from typing import Annotated, Any, Literal, Protocol, TypeAlias, runtime_checkab
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    FilePath,
-    field_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, FilePath, field_validator
 from typing_extensions import TypedDict
+from ultralytics.engine.model import Model as UltralyticsModelBase
 
 
 class StrictModel(BaseModel):
@@ -30,13 +25,27 @@ class Coordinates(StrictModel):
     x: float = Field(ge=0.0, le=1.0)
     y: float = Field(ge=0.0, le=1.0)
 
+
 Polygon: TypeAlias = list[Coordinates]
+Mask: TypeAlias = list[Coordinates]
+FrameArray: TypeAlias = NDArray[np.uint8]
+FrameMask: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
+UltralyticsModel: TypeAlias = UltralyticsModelBase
+OutputPathResult: TypeAlias = tuple[Path, str]
+
+ConfidenceThresholdValue: TypeAlias = Annotated[float, Field(ge=0.0, le=1.0)]
+TcpPortValue: TypeAlias = Annotated[int, Field(ge=1, le=65535)]
+BoundingBoxList: TypeAlias = list["BoundingBox"]
+CentroidList: TypeAlias = list[Coordinates]
+UploadKind: TypeAlias = Literal["image", "video"]
+StreamState: TypeAlias = Literal["running", "stopped", "stopping"]
+
+
 class BoundingBox(StrictModel):
     """Caja envolvente derivada de un polígono en coordenadas normalizadas."""
 
     p1: Coordinates
     p2: Coordinates
-
     width: float = Field(ge=0.0)
     height: float = Field(ge=0.0)
 
@@ -46,11 +55,9 @@ class BoundingBox(StrictModel):
         """Evita dimensiones negativas por redondeo."""
         return max(0.0, value)
 
-Mask: TypeAlias = list[Coordinates]
-FrameMask: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
 
 class Detection(StrictModel):
-    """Estructura de una deteccion serializable."""
+    """Estructura de una detección serializable."""
 
     class_id: int
     confidence: float = Field(ge=0.0, le=1.0)
@@ -59,109 +66,17 @@ class Detection(StrictModel):
     frame_mask: FrameMask
     centroid: Coordinates
 
-class OutputFile(StrictModel):
-    """Metadatos de un archivo de salida generado por la API."""
 
-    path: FilePath
-    media_type: str
+class MaskMetric(StrictModel):
+    """Métricas resumidas de una máscara."""
 
-
-class ModelConfigModel(StrictModel):
-    """Configuracion validable del modelo YOLO."""
-
-    Name: str = Field(min_length=1)
-    Path: FilePath
-    Device: str = Field(min_length=1)
-
-    @field_validator("Name", "Device")
-    @classmethod
-    def validate_model_field(cls, value: str) -> str:
-        """Evita campos vacios en la configuracion del modelo."""
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("Los campos del modelo no pueden estar vacios.")
-        return normalized
-
-    @field_validator("Path")
-    @classmethod
-    def validate_model_path(cls, value: Path) -> Path:
-        """Asegura que la ruta del modelo exista y no sea vacia."""
-        if not str(value).strip():
-            raise ValueError("La ruta del modelo no puede estar vacia.")
-        return value
+    mask_index: int
+    mask_area: int
+    frame_area: int
+    area_ratio: float
 
 
-class RtspURLModel(StrictModel):
-    """Representacion validable de una URL RTSP."""
-
-    url: str
-
-    @field_validator("url")
-    @classmethod
-    def validate_rtsp_url(cls, value: str) -> str:
-        """Valida que la URL tenga formato RTSP."""
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("La URL RTSP no puede estar vacia.")
-        if not normalized.lower().startswith("rtsp://"):
-            raise ValueError("La URL debe comenzar con 'rtsp://'.")
-        if normalized.count(":") < 2:
-            raise ValueError("La URL RTSP debe contener IP y puerto.")
-        return normalized
-
-
-class ApiConfigModel(StrictModel):
-    """Configuracion validable del servidor HTTP."""
-
-    IP: str = Field(min_length=1)
-    PORT: int = Field(ge=1, le=65535)
-
-    @field_validator("IP")
-    @classmethod
-    def validate_ip(cls, value: str) -> str:
-        """Evita valores vacios para la IP de la API."""
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("La IP de la API no puede estar vacia.")
-        if normalized.lower() != "localhost" and not normalized.count(".") == 3:
-            raise ValueError("La IP de la API debe ser 'localhost' o una direccion IPv4.")
-        return normalized
-
-
-class SavePathConfigModel(StrictModel):
-    """Configuracion validable de rutas de salida."""
-
-    Logs: Path
-    Inference: Path
-
-    @field_validator("Logs", "Inference")
-    @classmethod
-    def validate_output_path(cls, value: Path) -> Path:
-        """Evita rutas vacias en la configuracion."""
-        normalized = str(value).strip()
-        if not normalized:
-            raise ValueError("Las rutas de salida no pueden estar vacias.")
-        return value
-
-
-class AppConfigModel(StrictModel):
-    """Configuracion raiz validable del proyecto."""
-
-    API: ApiConfigModel
-    SavePath: SavePathConfigModel
-    Model: ModelConfigModel
-
-
-FrameArray: TypeAlias = NDArray[np.uint8]
-MaskArray: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
-VerticesList: TypeAlias = list[Coordinates]
-BoundingBoxList: TypeAlias = list[BoundingBox]
-CentroidList: TypeAlias = list[Coordinates]
-UploadKind: TypeAlias = Literal["image", "video"]
-StreamState: TypeAlias = Literal["running", "stopped", "stopping"]
-
-
-class FramePackage(TypedDict):
+class FramePackage(StrictModel):
     """Frame compartido entre el lector y el procesador."""
 
     img: FrameArray
@@ -171,31 +86,97 @@ class FramePackage(TypedDict):
     height: int
 
 
-class Detection(TypedDict):
-    """Deteccion serializable publicada y persistida por el sistema."""
+class OutputFile(StrictModel):
+    """Metadatos de un archivo de salida generado por la API."""
 
-    class_id: int
-    confidence: float
-    bbox: BoundingBox
-    mask: list[Any]
-    vertices: VerticesList
-    centroid: CentroidList
+    path: FilePath
+    media_type: str
 
 
-class MaskMetric(TypedDict):
-    """Metricas resumidas de una mascara."""
+class ApiConfig(StrictModel):
+    """Configuración validable del servidor HTTP."""
 
-    mask_index: int
-    mask_area: int
-    frame_area: int
-    area_ratio: float
+    IP: str = Field(min_length=1)
+    PORT: int = Field(ge=1, le=65535)
+
+    @field_validator("IP")
+    @classmethod
+    def validate_ip(cls, value: str) -> str:
+        """Evita valores vacíos para la IP de la API."""
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("La IP de la API no puede estar vacía.")
+        if normalized.lower() != "localhost" and normalized.count(".") != 3:
+            raise ValueError(
+                "La IP de la API debe ser 'localhost' o una dirección IPv4."
+            )
+        return normalized
 
 
-DetectionBatch: TypeAlias = list[Detection]
+class SavePathConfigModel(StrictModel):
+    """Rutas de salida configurables del proyecto."""
+
+    Logs: Path
+    Inference: Path
+
+
+class ModelConfig(StrictModel):
+    """Configuración validable del modelo YOLO."""
+
+    Name: str = Field(min_length=1)
+    Path: FilePath
+    Device: str = Field(min_length=1)
+
+    @field_validator("Name", "Device")
+    @classmethod
+    def validate_model_field(cls, value: str) -> str:
+        """Evita campos vacíos en la configuración del modelo."""
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Los campos del modelo no pueden estar vacíos.")
+        return normalized
+
+    @field_validator("Path")
+    @classmethod
+    def validate_model_path(cls, value: Path) -> Path:
+        """Asegura que la ruta del modelo exista y no sea vacía."""
+        if not str(value).strip():
+            raise ValueError("La ruta del modelo no puede estar vacía.")
+        return value
+
+
+ModelConfigModel: TypeAlias = ModelConfig
+
+
+class RtspURL(StrictModel):
+    """Representación validable de una URL RTSP."""
+
+    url: str
+
+    @field_validator("url")
+    @classmethod
+    def validate_rtsp_url(cls, value: str) -> str:
+        """Valida que la URL tenga formato RTSP."""
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("La URL RTSP no puede estar vacía.")
+        if not normalized.lower().startswith("rtsp://"):
+            raise ValueError("La URL debe comenzar con 'rtsp://'.")
+        if normalized.count(":") < 2:
+            raise ValueError("La URL RTSP debe contener IP y puerto.")
+        return normalized
+
+
+class AppConfigModel(StrictModel):
+    """Configuración raíz validable del proyecto."""
+
+    API: ApiConfig
+    SavePath: SavePathConfigModel
+    Model: ModelConfig
 
 
 class MQTTConfig(TypedDict):
-    """Configuracion MQTT asociada a una sesion."""
+    """Configuración MQTT asociada a una sesión."""
 
     broker: str
     port: int
@@ -264,19 +245,9 @@ class HealthResponse(TypedDict):
     stream: StreamsHealthResponse
 
 
-class AppRuntime(TypedDict):
-    """Objetos compartidos durante la vida de la aplicacion."""
-
-    config: AppConfigModel
-    manager: "GlobalManager"
-    runtime_state: "RuntimeState"
-    yolo_model: "YoloModel"
-    stream_manager: Any
-
-
 @runtime_checkable
 class EventLike(Protocol):
-    """Interfaz minima de un evento compartido."""
+    """Interfaz mínima de un evento compartido."""
 
     def set(self) -> None: ...
 
@@ -287,7 +258,7 @@ class EventLike(Protocol):
 
 @runtime_checkable
 class FrameQueueLike(Protocol):
-    """Interfaz minima de la cola compartida de frames."""
+    """Interfaz mínima de la cola compartida de frames."""
 
     def put(self, obj: FramePackage, timeout: float | None = None) -> None: ...
 
@@ -307,7 +278,7 @@ class SharedData(Protocol):
 
 @runtime_checkable
 class ProjectData(Protocol):
-    """Namespace compartido con configuracion y control de un stream."""
+    """Namespace compartido con configuración y control de un stream."""
 
     reader_process_running: EventLike
     processor_process_running: EventLike
@@ -328,7 +299,7 @@ class RuntimeState(Protocol):
 
 @runtime_checkable
 class GlobalManager(Protocol):
-    """Metodos del manager usados por la aplicacion."""
+    """Métodos del manager usados por la aplicación."""
 
     def Namespace(self) -> Any: ...
 
@@ -348,11 +319,40 @@ class YoloModel(Protocol):
         frame: FrameArray,
         confidence_threshold: float = 0.0,
         debug: bool = False,
-    ) -> Any: ...
+    ) -> list[Detection]: ...
 
-    def extract_detections(self, results: Any) -> DetectionBatch: ...
+    def extract_detections(self, results: Any) -> list[Detection]: ...
 
-    def draw_results(self, frame: FrameArray, results: Any) -> FrameArray: ...
+    def draw_results(self, frame: FrameArray, results: list[Detection]) -> FrameArray: ...
 
 
-OutputPathResult: TypeAlias = tuple[Path, str]
+class AppRuntime(TypedDict):
+    """Objetos compartidos durante la vida de la aplicación."""
+
+    config: AppConfigModel
+    manager: "GlobalManager"
+    runtime_state: "RuntimeState"
+    yolo_model: "YoloModel"
+    stream_manager: Any
+
+
+@runtime_checkable
+class PahoMQTTClient(Protocol):
+    """Superficie mínima usada del cliente `paho-mqtt`."""
+
+    on_connect: Any
+    on_disconnect: Any
+    broker: str
+    port: int
+    topic: str
+    keepalive: int
+
+    def connect_async(self, host: str, port: int, keepalive: int = 60) -> Any: ...
+
+    def loop_start(self) -> Any: ...
+
+    def publish(self, topic: str, payload: str) -> Any: ...
+
+    def loop_stop(self) -> Any: ...
+
+    def disconnect(self) -> Any: ...
