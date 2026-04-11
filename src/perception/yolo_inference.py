@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import cv2
@@ -17,7 +18,7 @@ from src.core.constants import (
     MASK_OVERLAY_BETA,
     MASK_OVERLAY_GAMMA,
 )
-from src.core.types import DetectionBatch, FrameArray
+from src.core.types import (FrameArray, Detection, BoundingBox, Coordinates)
 from src.perception.postprocessing import calculate_centroid, extract_vertices
 
 
@@ -38,87 +39,133 @@ class YoloInference:
     ) -> Any:
         """Realiza la inferencia sobre un frame."""
         # Mantiene la salida nativa de Ultralytics para reutilizar su API.
-        return self.model(frame, conf=confidence_threshold, verbose=debug)
+        results = self.model(frame, conf=confidence_threshold, verbose=debug)
 
-    def extract_detections(self, results: Any) -> DetectionBatch:
+        #Conversion de los rultados a un formato comun
+        return self.extract_detections(results)
+
+    def extract_detections(self, results: Any) -> list[Detection]:
         """Adapta los resultados del modelo a un formato serializable."""
         # Si no hay resultados, devuelve una lista vacia compatible con JSON.
         if not results:
             return []
 
-        # El pipeline procesa un unico frame por llamada.
-        result = results[0]
-        boxes = result.boxes.xyxy.cpu().numpy()
-        classes = result.boxes.cls.cpu().numpy()
-        confidences = result.boxes.conf.cpu().numpy()
-        masks = result.masks.data.cpu().numpy() if result.masks is not None else []
+        # Extraccion de los resultados de una iteraccion
+        result_yolo = results[0]
+        boxes = result_yolo.boxes.xyxy.cpu().numpy()
+        classes = result_yolo.boxes.cls.cpu().numpy()
+        confidences = result_yolo.boxes.conf.cpu().numpy()
+        masks = result_yolo.masks.data.cpu().numpy() if result_yolo.masks is not None else []
+        frame_height, frame_width = result_yolo.orig_shape[:2]
 
-        detections = []
+        detections: list[Detection] = []
         # Convierte cada deteccion a tipos simples para serializacion.
         for index, class_id in enumerate(classes):
-            confidence = float(confidences[index])
-            mask_array = masks[index] if index < len(masks) else None
-            centroid = calculate_centroid(mask_array) if mask_array is not None else None
-            vertices = (
-                extract_vertices(mask_array) if mask_array is not None else []
+            x1, y1, x2, y2 = boxes[index]
+            x1_norm = float(x1 / frame_width)
+            y1_norm = float(y1 / frame_height)
+            x2_norm = float(x2 / frame_width)
+            y2_norm = float(y2 / frame_height)
+            vertices = extract_vertices(masks[index])
+
+            detection = Detection(
+                class_id=int(class_id),
+                confidence=float(confidences[index]),
+                bbox=BoundingBox(
+                    p1=Coordinates(x=x1_norm, y=y1_norm),
+                    p2=Coordinates(x=x2_norm, y=y2_norm),
+                    width=float((x2 - x1) / frame_width),
+                    height=float((y2 - y1) / frame_height),
+                ),
+                mask=vertices,
+                frame_mask=masks[index],
+                centroid=calculate_centroid(vertices)
             )
-            detections.append(
-                {
-                    "class_id": int(class_id),
-                    "confidence": confidence,
-                    "bbox": boxes[index].tolist(),
-                    "mask": (
-                        mask_array.tolist()
-                        if isinstance(mask_array, np.ndarray)
-                        else []
-                    ),
-                    "vertices": vertices,
-                    "centroid": (
-                        [centroid.x, centroid.y] if centroid is not None else []
-                    ),
-                }
-            )
+            detections.append(detection)
 
         return detections
 
-    def draw_results(self, frame: FrameArray, results: Any) -> FrameArray:
+    def draw_results(self, frame: FrameArray, results: list[Detection]) -> FrameArray:
         """Dibuja mascaras y centroides sobre el frame original."""
-        result = results[0]
-        if result.masks is None or len(result.masks.data) == 0:
-            return frame.copy()
+        # Obtencion del tamaño del frame para escalar las coordenadas normalizadas a pixeles.
+        height, width = frame.shape[:2]
 
-        masks = result.masks.data.cpu().numpy()
-        annotated_frame = frame.copy()
+        # Iteraccion por cada deteccion
+        for detection in results:
+            pt1 = (
+                int(detection.bbox.p1.x * width),
+                int(detection.bbox.p1.y * height),
+            )
+            pt2 = (
+                int(detection.bbox.p2.x * width),
+                int(detection.bbox.p2.y * height),
+            )
 
-        # Superpone cada mascara y marca su centroide si existe.
-        for mask in masks:
-            if mask.shape != annotated_frame.shape[:2]:
-                mask = cv2.resize(
-                    mask,
-                    (annotated_frame.shape[1], annotated_frame.shape[0]),
-                    interpolation=cv2.INTER_NEAREST,
-                )
+            # Dibujo del bounding box
+            cv2.rectangle(
+                frame,
+                pt1,
+                pt2,
+                (0, 255, 0),
+                2,
+            )
 
-            centroid = calculate_centroid(mask)
-            colored_mask = np.zeros_like(annotated_frame)
-            colored_mask[mask > DEFAULT_MASK_THRESHOLD] = MASK_COLOR
-            annotated_frame = cv2.addWeighted(
-                annotated_frame,
+            # Dibujo del centroide
+            cv2.circle(
+                frame,
+                (int(detection.centroid.x * width), int(detection.centroid.y * height)),
+                CENTROID_RADIUS,
+                CENTROID_COLOR,
+                -1,
+            )
+
+            # Dibujo de la mascara
+            colored_mask = np.zeros_like(frame)
+            colored_mask[detection.frame_mask > DEFAULT_MASK_THRESHOLD] = MASK_COLOR
+            frame = np.asarray(
+                cv2.addWeighted(
+                frame,
                 MASK_OVERLAY_BETA,
                 colored_mask,
                 MASK_OVERLAY_ALPHA,
                 MASK_OVERLAY_GAMMA,
+                ),
+                dtype=np.uint8,
             )
 
-            if centroid is not None:
-                cv2.circle(
-                    annotated_frame,
-                    (centroid.x, centroid.y),
-                    CENTROID_RADIUS,
-                    CENTROID_COLOR,
-                    -1,
-                )
+            # Dibujo de la etiqueta de clase y confianza
+            label = f"{detection.class_id}: {detection.confidence:.2f}"
+            cv2.putText(
+                frame,
+                label,
+                (pt1[0], pt1[1] - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 255, 0),
+                2,
+            )
+        return np.asarray(frame, dtype=np.uint8)
 
-        # Conversion del tipo de dato de annotated_frame a FrameArray para mantener la consistencia de tipos en la aplicacion
-        annotated_frame = annotated_frame.astype(np.uint8)
-        return annotated_frame
+
+if __name__ == "__main__":
+    # Prueba de la clase YoloInference con un frame de ejemplo.
+    project_root = Path(__file__).resolve().parents[2]
+    model_path = project_root / "models" / "yolo26n-seg.pt"
+    yolo_inference = YoloInference(str(model_path))
+
+    # Abrimos la camara y procesamos un frame de prueba.
+    cap = cv2.VideoCapture(1)
+
+
+    ret, frame = cap.read()
+
+    #Conversion del frame a un formato compatible con el modelo y la API.
+    frame = np.asarray(frame, dtype=np.uint8)
+
+    detections = yolo_inference.predict(frame, confidence_threshold=0.5)
+    annotated_frame = yolo_inference.draw_results(frame, detections)
+
+    cv2.imshow("YOLO Inference", annotated_frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        cap.release()
+        cv2.destroyAllWindows()

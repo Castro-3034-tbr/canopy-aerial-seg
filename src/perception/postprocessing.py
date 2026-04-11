@@ -6,26 +6,35 @@ import cv2
 import numpy as np
 
 from src.core.constants import DEFAULT_MASK_THRESHOLD
-from src.core.types import Coordinates, MaskArray, MaskMetric, VerticesList
+from src.core.types import Coordinates, Polygon, FrameMask, MaskMetric
 
 
-def calculate_centroid(mask: MaskArray) -> Coordinates:
-    """Calcula el centroide de una mascara de segmentacion."""
-    # Sin mascara no existe un centroide calculable.
-    if len(mask) == 0:
-        return Coordinates(x=-1, y=-1)
+def calculate_centroid(polygon: Polygon) -> Coordinates:
+    """Calcula el centroide de un polígono.
 
-    # Usa los momentos geometricos para obtener el centro de masa.
-    moments = cv2.moments(mask.astype(np.uint8))
-    if moments["m00"] == 0:
-        return Coordinates(x=-1, y=-1)
+    Si el área es casi cero, devuelve la media de los puntos para evitar
+    divisiones por cero.
+    """
 
-    center_x = int(moments["m10"] / moments["m00"])
-    center_y = int(moments["m01"] / moments["m00"])
-    return Coordinates(x=center_x, y=center_y)
+    x = np.array([point.x for point in polygon], dtype=np.float64)
+    y = np.array([point.y for point in polygon], dtype=np.float64)
+
+    cross = x * np.roll(y, -1) - np.roll(x, -1) * y
+    area2 = np.sum(cross)
+
+    if abs(area2) < 1e-12:
+        return Coordinates(x=float(np.mean(x)), y=float(np.mean(y)))
+
+    cx = np.sum((x + np.roll(x, -1)) * cross) / (3 * area2)
+    cy = np.sum((y + np.roll(y, -1)) * cross) / (3 * area2)
+
+    return Coordinates(
+        x=float(np.clip(cx, 0.0, 1.0)),
+        y=float(np.clip(cy, 0.0, 1.0)),
+    )
 
 
-def extract_vertices(mask: MaskArray) -> VerticesList:
+def extract_vertices(mask: FrameMask) -> list[Coordinates]:
     """Extrae los vertices del contorno principal de una mascara."""
     # Si no hay mascara, no hay contorno que analizar.
     if len(mask) == 0:
@@ -40,18 +49,25 @@ def extract_vertices(mask: MaskArray) -> VerticesList:
     if not contours:
         return []
 
+    # Selecciona el contorno mas grande asumiendo que es el objeto principal.
     contour = max(contours, key=cv2.contourArea)
+    mask_height, mask_width = mask.shape[:2]
     vertices = [
-        Coordinates(x=int(point[0][0]), y=int(point[0][1])) for point in contour
+        Coordinates(
+            x=float(point[0][0] / mask_width),
+            y=float(point[0][1] / mask_height),
+        )
+        for point in contour
     ]
     return vertices
 
 
-def process_mask(masks: np.ndarray) -> list[MaskMetric]:
+def process_mask(masks: FrameMask, gsd: float) -> list[MaskMetric]:
     """Calcula metricas basicas para un conjunto de mascaras."""
-    # Devuelve una lista vacia cuando el modelo no produce mascaras.
-    if len(masks) == 0:
-        return []
+
+    #TODO: Refactorizar para:
+    # - Calcular el area de la mascara mediante los pixeles 
+    # - Calcular el area real usando el GSD (Ground Sample Distance) 
 
     # Calcula el area del frame para normalizar las metricas.
     frame_height, frame_width = masks.shape[1:3]
