@@ -1,0 +1,257 @@
+
+import os
+from eda.core.logger import configure_logging
+from eda.io.loaders import load_images, load_labels
+from eda.io.writers import save_results
+from eda.visualization.density_plot import plot_density_center
+from eda.visualization.graphic_plot import (
+    plot_boxplot,
+    plot_continuous_distribution,
+    plot_count_bars,
+)
+
+from eda.core.types import (
+    AnalysisResult
+)
+
+from eda.metrics.images import (
+    count_image_types,
+    count_image_sizes,
+    count_image_aspect_ratios,
+    compute_images_brightness,
+    compute_images_contrast,
+    compute_images_blur,
+)
+
+from eda.metrics.labels import (
+    compute_label_areas,
+    count_label_aspect_ratios,
+    compute_label_centers,
+    count_label_quadrants_x,
+    count_label_quadrants_y,
+    count_labels_per_image,
+    compute_labels_iou,
+    compute_area_label_image_ratio,
+    compute_area_labels_image_ratio,
+)
+
+
+from pathlib import Path
+
+# Definicion de rutas de datos y resultados
+DATASET_PATH = Path("./data/train")
+RESULTS_DIR = Path("./output/eda")
+RESULTS_FILE = RESULTS_DIR / "eda_results.txt"
+PLOTS_DIR = RESULTS_DIR / "plots"
+
+# Comprobacion de existencia de directorios
+if not DATASET_PATH.exists():
+    raise FileNotFoundError(f"El directorio de datos no existe: {DATASET_PATH}")
+if not RESULTS_DIR.exists():
+    os.makedirs(RESULTS_DIR)
+
+
+def _generate_plots(results: AnalysisResult) -> None:
+    """Genera gráficos EDA a partir de las métricas calculadas."""
+    if not PLOTS_DIR.exists():
+        os.makedirs(PLOTS_DIR)
+
+    plot_count_bars(
+        counts={str(k): v for k, v in results.image_types.items()},
+        output_path=PLOTS_DIR / "image_types_bar.png",
+        title="Tipos de archivo de imágenes",
+        x_label="Frecuencia",
+        y_label="Tipo",
+    )
+    plot_count_bars(
+        counts={f"{w}x{h}": c for (w, h), c in results.image_sizes.items()},
+        output_path=PLOTS_DIR / "image_sizes_bar.png",
+        title="Top tamaños de imágenes",
+        x_label="Frecuencia",
+        y_label="Resolución",
+        top_n=15,
+    )
+    plot_count_bars(
+        counts={str(k): v for k, v in results.image_aspect_ratios.items()},
+        output_path=PLOTS_DIR / "image_aspect_ratios_bar.png",
+        title="Relaciones de aspecto de imágenes",
+        x_label="Frecuencia",
+        y_label="Relación",
+    )
+
+    plot_continuous_distribution(
+        values=results.images_brightness,
+        output_path=PLOTS_DIR / "images_brightness_hist.png",
+        title="Distribución de brillo",
+        x_label="Brillo medio",
+    )
+    plot_boxplot(
+        values=results.images_brightness,
+        output_path=PLOTS_DIR / "images_brightness_box.png",
+        title="Boxplot de brillo",
+        y_label="Brillo medio",
+    )
+    plot_continuous_distribution(
+        values=results.images_contrast,
+        output_path=PLOTS_DIR / "images_contrast_hist.png",
+        title="Distribución de contraste",
+        x_label="Contraste",
+    )
+    plot_boxplot(
+        values=results.images_contrast,
+        output_path=PLOTS_DIR / "images_contrast_box.png",
+        title="Boxplot de contraste",
+        y_label="Contraste",
+    )
+    plot_continuous_distribution(
+        values=results.images_blur,
+        output_path=PLOTS_DIR / "images_blur_hist.png",
+        title="Distribución de desenfoque",
+        x_label="Varianza de Laplaciano",
+        use_log_x=False,
+    )
+    plot_boxplot(
+        values=results.images_blur,
+        output_path=PLOTS_DIR / "images_blur_box.png",
+        title="Boxplot de desenfoque",
+        y_label="Varianza de Laplaciano",
+    )
+
+    plot_continuous_distribution(
+        values=results.num_labels_per_image,
+        output_path=PLOTS_DIR / "labels_per_image_hist.png",
+        title="Etiquetas por imagen",
+        x_label="Cantidad de etiquetas",
+    )
+    plot_boxplot(
+        values=results.num_labels_per_image,
+        output_path=PLOTS_DIR / "labels_per_image_box.png",
+        title="Boxplot de etiquetas por imagen",
+        y_label="Cantidad de etiquetas",
+    )
+
+    plot_count_bars(
+        counts={str(k): v for k, v in results.label_aspect_ratios.items()},
+        output_path=PLOTS_DIR / "label_aspect_ratios_bar.png",
+        title="Relaciones de aspecto de etiquetas",
+        x_label="Frecuencia",
+        y_label="Relación",
+    )
+
+    plot_continuous_distribution(
+        values=results.label_areas,
+        output_path=PLOTS_DIR / "label_areas_hist.png",
+        title="Distribución de áreas de etiquetas",
+        x_label="Área de etiqueta",
+        use_log_x=False,
+    )
+    plot_boxplot(
+        values=results.label_areas,
+        output_path=PLOTS_DIR / "label_areas_box.png",
+        title="Boxplot de áreas de etiquetas",
+        y_label="Área de etiqueta",
+    )
+
+    plot_continuous_distribution(
+        values=results.label_area_ratios,
+        output_path=PLOTS_DIR / "label_area_ratios_hist.png",
+        title="Ratio área etiqueta / área imagen",
+        x_label="Ratio",
+    )
+    plot_continuous_distribution(
+        values=results.label_area_ratios_per_image,
+        output_path=PLOTS_DIR / "label_area_ratios_per_image_hist.png",
+        title="Ratio área total etiquetas / área imagen",
+        x_label="Ratio",
+    )
+
+    plot_count_bars(
+        counts={str(k): v for k, v in results.label_quadrants_x.items()},
+        output_path=PLOTS_DIR / "label_quadrants_x_bar.png",
+        title="Centroides por cuadrante X",
+        x_label="Frecuencia",
+        y_label="Cuadrante",
+    )
+    plot_count_bars(
+        counts={str(k): v for k, v in results.label_quadrants_y.items()},
+        output_path=PLOTS_DIR / "label_quadrants_y_bar.png",
+        title="Centroides por cuadrante Y",
+        x_label="Frecuencia",
+        y_label="Cuadrante",
+    )
+
+    plot_continuous_distribution(
+        values=results.labels_iou,
+        output_path=PLOTS_DIR / "labels_iou_hist.png",
+        title="Distribución de IoU entre etiquetas",
+        x_label="IoU",
+    )
+    plot_boxplot(
+        values=results.labels_iou,
+        output_path=PLOTS_DIR / "labels_iou_box.png",
+        title="Boxplot de IoU",
+        y_label="IoU",
+    )
+
+    plot_density_center(
+        labels_centers=results.labels_centers,
+        output_path=PLOTS_DIR / "labels_centers_density.png",
+    )
+
+def main() -> None:
+    """Punto de entrada principal del programa."""
+    # Configura el sistema de logging
+    configure_logging()
+
+    # Carga de datos
+    images = load_images(DATASET_PATH / "images").images
+    labels = load_labels(DATASET_PATH / "labels").labels
+    
+    print(f"Cargadas {len(images)} imágenes y {len(labels)} archivos de etiquetas.")
+
+    # Calculo de métricas para imágenes
+    image_types = count_image_types(images)
+    image_sizes = count_image_sizes(images)
+    image_aspect_ratios = count_image_aspect_ratios(images)
+    images_brightness = compute_images_brightness(images)
+    images_contrast = compute_images_contrast(images)
+    images_blur = compute_images_blur(images)
+    
+    # Calculo de métricas para etiquetas
+    num_labels_per_image = count_labels_per_image(labels)
+    label_areas = compute_label_areas(labels)
+    label_aspect_ratios = count_label_aspect_ratios(labels)
+    label_area_ratios = compute_area_label_image_ratio(images, labels)
+    label_area_ratios_per_image = compute_area_labels_image_ratio(images, labels)
+    labels_centers = compute_label_centers(labels)
+    label_quadrants_x = count_label_quadrants_x(labels_centers)
+    label_quadrants_y = count_label_quadrants_y(labels_centers)
+    labels_iou = compute_labels_iou(labels)
+
+    # Guardar resultados
+
+    results = AnalysisResult(
+        images=images,
+        labels=labels,
+        image_types=image_types,
+        image_sizes=image_sizes,
+        image_aspect_ratios=image_aspect_ratios,
+        images_brightness=images_brightness,
+        images_contrast=images_contrast,
+        images_blur=images_blur,
+        num_labels_per_image=num_labels_per_image,
+        label_areas=label_areas,
+        label_aspect_ratios=label_aspect_ratios,
+        label_area_ratios=label_area_ratios,
+        label_area_ratios_per_image=label_area_ratios_per_image,
+        labels_centers=labels_centers,
+        label_quadrants_x=label_quadrants_x,
+        label_quadrants_y=label_quadrants_y,
+        labels_iou=labels_iou,
+    )  
+    save_results(results, RESULTS_FILE)
+    _generate_plots(results)
+    
+
+if __name__ == "__main__":
+    main()
