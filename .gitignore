@@ -14,3 +14,4 @@ eda/core/__pycache__/
 eda/visualization/__pycache__/
 eda/io/__pycache__/
 eda/metrics/__pycache__/
+eda/utils/__pycache__/
