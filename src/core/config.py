@@ -49,7 +49,7 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> PipelineConfig:
         )
 
     try:
-        return PipelineConfig.model_validate(config)
+        return PipelineConfig.model_validate(obj=config)
     except ValidationError as exc:
         raise ValueError(
             f"Configuracion invalida:\n{exc}"

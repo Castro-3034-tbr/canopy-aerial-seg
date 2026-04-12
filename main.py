@@ -20,15 +20,15 @@ def main() -> int:
 
     # Configuracion de los elementos necesarios
     configure_logging()
-    config = load_config("config/config.json")
+    config = load_config(path="config/config.json")
 
     # Resolucion de rutas
-    data_path = resolve_path(config.pathData)
+    data_path = resolve_path(value=config.pathData)
     output_path = resolve_path(
         config.pathResult,
         default=PROJECT_ROOT / "results",
     )
-    model_path = resolve_path(config.model.path)
+    model_path = resolve_path(value=config.model.path)
 
     logger.info(
         "Rutas cargadas - Data: %s, Output: %s, Model: %s",
@@ -39,7 +39,7 @@ def main() -> int:
 
     # Carga del modelo
     try:
-        model = YOLO(model_path)
+        model = YOLO(model=model_path)
         logger.info(f"Modelo YOLO cargado exitosamente desde {model_path}")
     except Exception as exc:
         logger.exception(

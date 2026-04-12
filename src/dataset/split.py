@@ -78,8 +78,8 @@ def split_dataset(
 
     # Listar archivos en el dataset
     try:
-        images = read_files(dataset_root / "images")
-        labels = read_files(dataset_root / "labels")
+        images = read_files(dataset_path=dataset_root / "images")
+        labels = read_files(dataset_path=dataset_root / "labels")
         if not images or not labels:
             raise ValueError("El dataset esta vacio")
     except Exception as exc:
@@ -89,7 +89,7 @@ def split_dataset(
 
     # Mezclamos los archivos para evitar sesgos
     try:
-        pairs = make_pairs(images, labels)
+        pairs = make_pairs(images=images, labels=labels)
         random.shuffle(pairs)
     except Exception as exc:
         raise RuntimeError(

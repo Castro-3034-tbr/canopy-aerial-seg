@@ -64,7 +64,7 @@ class ModelConfig(StrictModel):
         if not value:
             raise ValueError("La ruta del modelo no puede estar vacia.")
 
-        model_path = resolve_path(value)
+        model_path = resolve_path(value=value)
         if not model_path.exists():
             raise ValueError(
                 f"La ruta del modelo no existe: {model_path}"
@@ -159,7 +159,7 @@ class PredictConfig(StrictModel):
                 "La ruta de entrada para prediccion no puede estar vacia."
             )
 
-        source_path = resolve_path(value)
+        source_path = resolve_path(value=value)
         if not source_path.exists():
             raise ValueError(
                 f"La ruta de entrada para prediccion no existe: {source_path}"
@@ -203,7 +203,7 @@ class PipelineConfig(StrictModel):
     @classmethod
     def validate_data_path_exists(cls, value: str) -> str:
         """Valida que el dataset de entrada exista y sea un archivo."""
-        data_path = resolve_path(value)
+        data_path = resolve_path(value=value)
         if not data_path.exists():
             raise ValueError(
                 f"La ruta de datos no existe: {data_path}"
@@ -218,7 +218,7 @@ class PipelineConfig(StrictModel):
     @classmethod
     def validate_or_create_output_path(cls, value: str) -> str:
         """Crea el directorio de salida si no existe y valida su tipo."""
-        output_path = resolve_path(value)
+        output_path = resolve_path(value=value)
         if output_path.exists() and not output_path.is_dir():
             raise ValueError(
                 "La ruta de salida debe ser un directorio: "

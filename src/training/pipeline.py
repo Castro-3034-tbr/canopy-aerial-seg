@@ -63,7 +63,7 @@ class YoloPipeline:
 
         logger.info("Iniciando ejecución del pipeline YOLO.")
 
-        data_directory = os.path.dirname(self.data_path)
+        data_directory = os.path.dirname(p=self.data_path)
         clean_cache(directory=data_directory)
 
         # Entreno del modelo
