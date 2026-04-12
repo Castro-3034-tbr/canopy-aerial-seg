@@ -6,6 +6,7 @@ from multiprocessing import Process
 from pathlib import Path
 from typing import Annotated, Any, Literal, Protocol, TypeAlias, runtime_checkable
 
+import ultralytics
 import numpy as np
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict, Field, FilePath, field_validator
@@ -33,7 +34,7 @@ FrameMask: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
 UltralyticsModel: TypeAlias = UltralyticsModelBase
 OutputPathResult: TypeAlias = tuple[Path, str]
 
-ConfidenceThresholdValue: TypeAlias = Annotated[float, Field(ge=0.0, le=1.0)]
+ConfidenceThreshold: TypeAlias = Annotated[float, Field(ge=0.0, le=1.0)]
 TcpPortValue: TypeAlias = Annotated[int, Field(ge=1, le=65535)]
 BoundingBoxList: TypeAlias = list["BoundingBox"]
 CentroidList: TypeAlias = list[Coordinates]
@@ -332,7 +333,7 @@ class AppRuntime(TypedDict):
     config: AppConfigModel
     manager: "GlobalManager"
     runtime_state: "RuntimeState"
-    yolo_model: "YoloModel"
+    yolo_model: "ultralytics.YOLO"
     stream_manager: Any
 
 

@@ -13,7 +13,7 @@ from src.core.config import load_config
 from src.core.constants import APP_DESCRIPTION, APP_TITLE, APP_VERSION
 from src.core.data_init import init_runtime_state
 from src.core.types import AppRuntime, GlobalManager
-from src.perception.yolo_inference import YoloInference
+from src.perception.yolo_inference import initialize_model
 from src.processes.stream_manager import StreamManager
 from src.core.logger import configure_logging
 
@@ -33,7 +33,7 @@ def build_runtime() -> AppRuntime:
     model_config = config.Model
 
     # Construye el modelo una sola vez para reutilizarlo en la aplicacion.
-    yolo_model = YoloInference(
+    yolo_model = initialize_model(
         model_config.Path,
         model_config.Device,
     )
