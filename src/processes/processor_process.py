@@ -11,11 +11,12 @@ import cv2
 import pandas as pd
 import ultralytics
 
-from src.communication.mqtt_client import (
+from src.mqtt.connection import (
     connect_mqtt,
     disconnect_mqtt,
-    publish_message,
 )
+from src.mqtt.publisher import publish_message
+
 from src.core.constants import (
     DETECTION_LOG_COLUMNS,
     DETECTIONS_LOG_PREFIX,
@@ -142,7 +143,7 @@ def processor_process(
                 result_json = convert_detections_to_json(detections=yolo_results, frame_id=frame_id)
                 publish_message(
                     client=mqtt_client,
-                    message=result_json,
+                    payload=result_json,
                     frame_id=frame_id,
                 )
 
