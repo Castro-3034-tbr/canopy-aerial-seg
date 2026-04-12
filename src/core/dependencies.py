@@ -26,7 +26,7 @@ def build_runtime() -> AppRuntime:
     config = load_config()
     # Crea el gestor de objetos compartidos para los procesos hijos.
     manager = cast(GlobalManager, Manager())
-    runtime_state = init_runtime_state(manager)
+    runtime_state = init_runtime_state(manager=manager)
 
     # Extrae los bloques de configuracion que usan el modelo y las salidas.
     save_path_config = config.SavePath

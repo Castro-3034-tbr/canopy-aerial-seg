@@ -7,7 +7,6 @@ import os
 import uvicorn
 
 from src.core.config import load_config
-from src.core.constants import DEFAULT_API_HOST_KEY, DEFAULT_API_PORT_KEY
 from src.core.dependencies import create_app
 from src.core.types import ApiConfigModel
 
@@ -28,8 +27,8 @@ def main() -> None:
     """Inicia Uvicorn con la configuracion declarada en disco."""
     # Obtiene la configuracion de la API desde el archivo principal.
     api_config = load_config().API
-    api_host = getattr(api_config, DEFAULT_API_HOST_KEY)
-    api_port = getattr(api_config, DEFAULT_API_PORT_KEY)
+    api_host = getattr(api_config, "IP")
+    api_port = getattr(api_config, "PORT")
 
     if not api_host or not api_port:
         raise ValueError(

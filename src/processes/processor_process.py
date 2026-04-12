@@ -106,6 +106,10 @@ def processor_process(
                 package: FramePackage = shared_data.frame_queue.get(
                     timeout=FRAME_QUEUE_TIMEOUT_SECONDS
                 )
+
+                frame = package.img
+                frame_id = package.frame_id
+
             except queue.Empty:
                 logger.debug(
                     "No se recibio ningun frame en el tiempo de espera "
@@ -116,13 +120,10 @@ def processor_process(
                 continue
 
             try:
-                # Ejecuta inferencia y adapta el resultado a un formato simple.
-                frame = package["img"]
-                frame_id = package["frame_id"]
-
+                # Ejecuta inferencia
                 yolo_results = predict(
-                    yolo_model,
-                    frame,
+                    model=yolo_model,
+                    frame=frame,
                     confidence_threshold=confidence_threshold,
                 )
 
@@ -138,10 +139,10 @@ def processor_process(
                 
 
                 # Publica el lote actual de detecciones en MQTT.
-                result_json = convert_detections_to_json(yolo_results, frame_id)
+                result_json = convert_detections_to_json(detections=yolo_results, frame_id=frame_id)
                 publish_message(
-                    mqtt_client,
-                    result_json,
+                    client=mqtt_client,
+                    message=result_json,
                     frame_id=frame_id,
                 )
 
@@ -184,8 +185,8 @@ def processor_process(
                 logger.exception(
                     "Error durante el procesamiento del frame stream_id=%s frame_id=%s",
                     project_data.stream_id,
-                    package.get("frame_id"),
+                    frame_id,
                 )
     finally:
         # Cierra la conexion MQTT aunque el proceso termine por error.
-        disconnect_mqtt(mqtt_client)
+        disconnect_mqtt(client=mqtt_client)

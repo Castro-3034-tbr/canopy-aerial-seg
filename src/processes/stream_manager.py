@@ -107,13 +107,13 @@ class StreamManager:
             )
 
         # Inicialización de los datos compartidos y de los procesos de lectura e inferencia para el nuevo stream
-        shared_data = init_shared_data(self.manager)
+        shared_data = init_shared_data(manager=self.manager)
         project_data = init_project_data(
-            self.manager,
-            self.model_config.Path,
-            self.model_config.Device,
-            str(self.save_path_config.Logs),
-            str(self.save_path_config.Inference),
+            manager=self.manager,
+            yolo_path=str(self.model_config.Path),
+            yolo_device=self.model_config.Device,
+            save_path_logs=str(self.save_path_config.Logs),
+            save_path_inference=str(self.save_path_config.Inference),
         )
         project_data.reader_process_running.set()
         project_data.processor_process_running.set()
@@ -221,7 +221,7 @@ class StreamManager:
 
             # Detención de todos los streams activos utilizando el método _stop_one para cada sesión, y construcción de la respuesta con la información de los streams detenidos.
             stopped_streams = [
-                self._stop_one(session_id, timeout)
+                self._stop_one(stream_id=session_id, timeout=timeout)
                 for session_id in list(self.sessions)
             ]
             return {
@@ -237,7 +237,7 @@ class StreamManager:
             )
 
         # Parada del stream específico utilizando el método _stop_one.
-        stopped = self._stop_one(stream_id, timeout)
+        stopped = self._stop_one(stream_id=stream_id, timeout=timeout)
         return {
             "msg": STREAM_STOP_SUCCESS_MESSAGE,
             "stream_id": stopped["stream_id"],

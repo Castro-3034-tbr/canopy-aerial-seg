@@ -63,7 +63,7 @@ def extract_detections(results: Any) -> list[Detection]:
         y1_norm = float(y1 / frame_height)
         x2_norm = float(x2 / frame_width)
         y2_norm = float(y2 / frame_height)
-        vertices = extract_vertices(masks[index])
+        vertices = extract_vertices(mask=masks[index])
 
         detection = Detection(
             class_id=int(class_id),
@@ -76,7 +76,7 @@ def extract_detections(results: Any) -> list[Detection]:
             ),
             mask=vertices,
             frame_mask=masks[index],
-            centroid=calculate_centroid(vertices)
+            centroid=calculate_centroid(polygon=vertices)
         )
         detections.append(detection)
 
