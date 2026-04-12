@@ -4,18 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, File, Query, Request, UploadFile
+from typing import Annotated, cast
+from fastapi import APIRouter, Query, Request, UploadFile, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
-from src.api.request_validation import (
-    _detect_upload_kind,
-    _require_runtime,
-    _validate_confidence_threshold,
-    _validate_mqtt_port,
-    _validate_rtsp_url,
-    _validate_upload_contents,
-)
+
 from src.core.constants import (
     ANNOTATED_FILENAME_PREFIX,
     DEFAULT_CONFIDENCE_THRESHOLD,
@@ -26,6 +20,8 @@ from src.core.constants import (
     HEALTH_OK_MESSAGE,
 )
 from src.core.types import (
+    RtspURL,
+    ConfidenceThreshold,
     HealthResponse,
     StopAllStreamsResponse,
     StreamStartedResponse,
@@ -35,6 +31,19 @@ from src.utils.file_utils import process_image, process_video
 
 # Define las rutas para streaming y prediccion de archivos.
 router = APIRouter()
+
+
+def _require_runtime(request: Request) -> None:
+    """Comprueba que el runtime pesado de la aplicacion este disponible."""
+    if (
+        not hasattr(request.app.state, "stream_manager")
+        or not hasattr(request.app.state, "yolo_model")
+        or request.app.state.yolo_model is None
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="La aplicacion aun no ha inicializado su runtime.",
+        )
 
 
 @router.post("/stream/start")
@@ -48,11 +57,11 @@ def start_stream(
             "Si no se envia, se genera automaticamente."
         ),
     ),
-    rtsp_url: str = Query(
+    rtsp_url: str = cast(str, Query(
         ...,
         alias="rtspUrl",
         description="URL RTSP del flujo de video.",
-    ),
+    )),
     save_log: bool = Query(default=False, alias="saveLog"),
     save_inference: bool = Query(default=False, alias="saveInference"),
     confidence_threshold: float = Query(
@@ -65,7 +74,7 @@ def start_stream(
         alias="mqttBroker",
         description="Direccion IP o nombre del broker MQTT.",
     ),
-    mqtt_port: int = Query(
+    mqtt_port: str = Query(
         ...,
         alias="mqttPort",
         description="Puerto del broker MQTT.",
@@ -77,15 +86,13 @@ def start_stream(
     ),
 ) -> StreamStartedResponse:
     """Inicia un nuevo stream RTSP para procesamiento en tiempo real."""
-    _require_runtime(request)
-    _validate_confidence_threshold(confidence_threshold)
-    _validate_rtsp_url(rtsp_url)
-    _validate_mqtt_port(mqtt_port)
+    _require_runtime(request=request)
 
+    # TODO: REHACER para adapatarla al proyecto y a los tipos de datos
     # Delega el alta del stream en el gestor central de procesos.
     return request.app.state.stream_manager.start(
         stream_id=stream_id,
-        rtsp_url=rtsp_url,
+        rtsp_url= RtspURL(url=rtsp_url),
         save_log=save_log,
         save_inference=save_inference,
         confidence_threshold=confidence_threshold,
@@ -108,7 +115,7 @@ def stop_stream(
     ),
 ) -> StreamStoppedResponse | StopAllStreamsResponse:
     """Detiene un stream RTSP en ejecucion."""
-    _require_runtime(request)
+    _require_runtime(request=request)
 
     # Si no llega identificador, el gestor detendra todos los streams.
     return request.app.state.stream_manager.stop(stream_id=stream_id)
@@ -117,39 +124,38 @@ def stop_stream(
 @router.post("/predict/file")
 async def predict_file(
     request: Request,
-    file: UploadFile | None = None,
-    confidence_threshold: float = Query(
-        default=DEFAULT_CONFIDENCE_THRESHOLD,
-        alias="confidenceThreshold",
-        description="Umbral de confianza para las detecciones.",
-    ),
+    file: UploadFile,
+    confidence_threshold: Annotated[
+        ConfidenceThreshold,
+        Query(
+            alias="confidenceThreshold",
+            description="Umbral de confianza para las detecciones.",
+        ),
+    ] = DEFAULT_CONFIDENCE_THRESHOLD,
 ) -> FileResponse:
     """Procesa una imagen o un video y devuelve el resultado anotado."""
-    if file is None:
-        file = File(
-            ...,
-            alias="file",
-            description="Archivo de imagen o video a procesar.",
-        )
-        raise ValueError("El campo 'file' es obligatorio.")
-    _require_runtime(request)
-    _validate_confidence_threshold(confidence_threshold)
+    _require_runtime(request=request)
 
     # Lee el contenido completo para derivarlo al pipeline adecuado.
     contents = await file.read()
+    content_type = file.content_type
     await file.close()
-    upload_kind = _detect_upload_kind(file.content_type)
-    _validate_upload_contents(contents)
 
     # Obtencion del modelo YOLO
     yolo_model = request.app.state.yolo_model
 
-    if upload_kind == "image":
+    if not content_type or not content_type.startswith(("image/", "video/")):
+        return FileResponse(
+            path=Path("static/error.txt"),
+            media_type="text/plain",
+            filename="error.txt",
+        )
+    elif content_type.startswith("image/"):
         # Procesa imagenes y genera una salida JPEG anotada.
         output_path, media_type = process_image(
-            yolo_model,
-            contents,
-            confidence_threshold,
+            yolo_model=yolo_model,
+            contents=contents,
+            confidence_threshold=confidence_threshold,
         )
         download_name = (
             f"{ANNOTATED_FILENAME_PREFIX}"
@@ -158,9 +164,9 @@ async def predict_file(
     else:
         # Procesa videos y conserva una salida MP4 anotada.
         output_path, media_type = process_video(
-            yolo_model,
-            contents,
-            confidence_threshold,
+            yolo_model=yolo_model,
+            contents=contents,
+            confidence_threshold=confidence_threshold,
         )
         download_name = (
             f"{ANNOTATED_FILENAME_PREFIX}"
@@ -178,7 +184,7 @@ async def predict_file(
 @router.get("/health")
 def health(request: Request) -> HealthResponse:
     """Verifica el estado de la API y del gestor de streams."""
-    _require_runtime(request)
+    _require_runtime(request=request)
     # Expone tanto el estado general como el detalle de los streams activos.
     return {
         "msg": HEALTH_OK_MESSAGE,
