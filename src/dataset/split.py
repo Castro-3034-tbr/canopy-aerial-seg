@@ -90,6 +90,11 @@ def split_dataset(
     # Mezclamos los archivos para evitar sesgos
     try:
         pairs = make_pairs(images=images, labels=labels)
+        if not pairs:
+            raise ValueError(
+                "No se encontraron pares imagen-etiqueta. "
+                "Verifica que los nombres base entre images/ y labels/ coincidan."
+            )
         random.shuffle(pairs)
     except Exception as exc:
         raise RuntimeError(
