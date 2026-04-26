@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 
-from src.core.types import (
+from train.core.types import (
     PipelineConfig,
     PipelineResults,
     PredictConfig,
@@ -13,10 +13,10 @@ from src.core.types import (
     ValidationConfig,
     YoloModel,
 )
-from src.inference.predictor import yolo_predict
-from src.training.trainer import yolo_train
-from src.training.validator import yolo_validate
-from src.utils.filesystem import clean_cache
+from train.inference.predictor import yolo_predict
+from train.training.trainer import yolo_train
+from train.training.validator import yolo_validate
+from train.utils.filesystem import clean_cache
 
 logger = logging.getLogger(__name__)
 

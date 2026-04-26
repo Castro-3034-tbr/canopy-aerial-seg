@@ -15,7 +15,7 @@ from pydantic import (
 )
 from ultralytics import YOLO
 
-from src.utils.filesystem import resolve_path
+from train.utils.filesystem import resolve_path
 
 
 YoloTaskResult = object

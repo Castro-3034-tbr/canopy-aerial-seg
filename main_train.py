@@ -6,11 +6,11 @@ import logging
 
 from ultralytics import YOLO
 
-from src.core.config import load_config
-from src.core.constants import DEFAULT_CONFIG_PATH, PROJECT_ROOT
-from src.core.logger import configure_logging
-from src.training.pipeline import YoloPipeline
-from src.utils.filesystem import resolve_path
+from train.core.config import load_config
+from train.core.constants import DEFAULT_CONFIG_PATH, PROJECT_ROOT
+from train.core.logger import configure_logging
+from train.training.pipeline import YoloPipeline
+from train.utils.filesystem import resolve_path
 
 logger = logging.getLogger(__name__)
 

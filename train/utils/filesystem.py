@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import List
 
-from src.core.constants import PROJECT_ROOT
+from train.core.constants import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 

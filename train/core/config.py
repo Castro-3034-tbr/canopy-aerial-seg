@@ -7,8 +7,8 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from src.core.constants import DEFAULT_CONFIG_PATH
-from src.core.types import AppConfigModel
+from train.core.constants import DEFAULT_CONFIG_PATH
+from train.core.types import AppConfigModel
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfigModel:

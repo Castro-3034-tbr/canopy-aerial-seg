@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from src.core.constants import (
+from train.core.constants import (
     DEFAULT_LOG_DIR,
     DEFAULT_LOG_FILENAME,
     DEFAULT_LOG_FORMAT,

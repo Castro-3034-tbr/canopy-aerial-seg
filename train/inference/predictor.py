@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.core.types import PredictConfig, YoloModel, YoloTaskResult
+from train.core.types import PredictConfig, YoloModel, YoloTaskResult
 
 from pathlib import Path
 

@@ -6,9 +6,9 @@ import os
 
 import uvicorn
 
-from src.core.config import load_config
-from src.core.dependencies import create_app
-from src.core.types import ApiConfig
+from train.core.config import load_config
+from train.core.dependencies import create_app
+from train.core.types import ApiConfig
 
 # Expone una app ligera; el runtime pesado se construye en startup.
 app = create_app()
