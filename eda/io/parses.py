@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def parse_polygon_label(label: str) -> MaskLabel:
+def parse_polygon_label(label: str) -> MaskLabel | None:
     """Parsea una línea de etiqueta YOLO de segmentación.
 
     Formato esperado: ``clase x1 y1 x2 y2 ... xN yN``
@@ -33,7 +33,7 @@ def parse_polygon_label(label: str) -> MaskLabel:
     # Mínimo: 1 class_id + 6 coordenadas (3 puntos) = 7 tokens
     if len(parts) < 7 or (len(parts) - 1) % 2 != 0:
         logger.debug(f"Formato incorrecto en línea: {label}")
-        return MaskLabel((1, Polygon([])))
+        return None
 
     try:
         # Conversion de class_id a entero y coordenadas a float
@@ -41,18 +41,18 @@ def parse_polygon_label(label: str) -> MaskLabel:
         raw_coords = list(map(float, parts[1:]))
     except ValueError:
         logger.debug(f"Error al convertir coordenadas en línea: {label}")
-        return MaskLabel((1, Polygon([])))
+        return None
 
     if class_id < 0:
         # class_id negativo no es válido para clasificación de objetos
         logger.debug(f"ID de clase negativo en línea: {label}")
-        return MaskLabel((1, Polygon([])))
+        return None
 
     # Verificar que estan todas en el rango [0.0, 1.0] antes de construir Coordinates
     coords_array = np.array(raw_coords, dtype=np.float64).reshape(-1, 2)
     if not np.all((coords_array >= 0.0) & (coords_array <= 1.0)):
         logger.debug(f"Coordenadas fuera de rango en línea: {label}")
-        return MaskLabel((1, Polygon([])))
+        return None
 
     #Conversion a lista de coordenadas normalizadas
     try:
@@ -62,7 +62,7 @@ def parse_polygon_label(label: str) -> MaskLabel:
         ]
     except ValueError as exc:
         logger.debug(f"Error al construir Coordinates: {exc}")
-        return MaskLabel((1, Polygon([])))
+        return None
 
     return MaskLabel((class_id, polygon))
 
