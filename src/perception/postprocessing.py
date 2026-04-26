@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 
 from src.core.constants import DEFAULT_MASK_THRESHOLD
-from src.core.types import Coordinates, Polygon, FrameMask, MaskMetric, Detection
+from src.core.types import Coordinates, Polygon, FrameMask, MaskMetric, Detection, Mask
 
 
 def calculate_centroid(polygon: Polygon) -> Coordinates:
@@ -36,7 +36,7 @@ def calculate_centroid(polygon: Polygon) -> Coordinates:
     )
 
 
-def extract_vertices(mask: FrameMask) -> list[Coordinates]:
+def extract_vertices(mask: FrameMask) -> Mask:
     """Extrae los vertices del contorno principal de una mascara."""
     # Si no hay mascara, no hay contorno que analizar.
     if len(mask) == 0:
@@ -62,6 +62,45 @@ def extract_vertices(mask: FrameMask) -> list[Coordinates]:
         for point in contour
     ]
     return vertices
+
+def crop_mask(
+    masks : list[Mask],
+    image_shape : tuple[int,int],
+    overlap: tuple[float,float]
+)-> list[FrameMask]:
+    """Recorta máscaras eliminando solo la parte en solape izquierdo y superior.
+
+    Args:
+        masks (list[FrameMask]): _description_
+        image (tuple[int,int]): _description_
+        overlap (tuple[float,float]): _description_
+
+    Returns:
+        FrameMasks: _description_
+    """
+
+    # Obtenemos las dimensiones de la imagen para calcular los limites de recorte
+    h, w = image_shape
+
+    # Calculamos los limites de recorte en pixeles a partir del porcentaje de solape
+    left_limit = int(overlap[0] * w)
+    top_limit = int(overlap[1] * h)
+
+    # Crear ROI válida
+    valid_region = np.ones((h, w), dtype=np.uint8)
+    valid_region[:, :left_limit] = 0     # eliminar izquierda
+    valid_region[:top_limit, :] = 0      # eliminar arriba
+
+    cropped_masks = []
+
+    for mask in masks:
+        cropped = mask * valid_region  # AND lógico
+
+        # Opcional: descartar si queda demasiado pequeña
+        if np.sum(cropped) > 0:
+            cropped_masks.append(cropped)
+
+    return cropped_masks
 
 
 def process_mask(masks: FrameMask, gsd: float) -> list[MaskMetric]:
