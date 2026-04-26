@@ -18,6 +18,9 @@ def calculate_centroid(polygon: Polygon) -> Coordinates:
     divisiones por cero.
     """
 
+    if not polygon:
+        return Coordinates(x=-1.0, y=-1.0)
+
     x = np.array([point.x for point in polygon], dtype=np.float64)
     y = np.array([point.y for point in polygon], dtype=np.float64)
 
@@ -76,9 +79,9 @@ def crop_mask(
         overlap (tuple[float,float]): _description_
 
     Returns:
-        FrameMasks: _description_
+        list[FrameMask]: Máscaras recortadas conservando el formato de array.
     """
-
+    #TODO: Hacerlo bien
     # Obtenemos las dimensiones de la imagen para calcular los limites de recorte
     h, w = image_shape
 

@@ -129,7 +129,7 @@ def processor_process(
                 )
 
                 logger.debug(
-                    "Frame procesado stream_id=%s frame_id=%s detections=%s latency_ms=%.2f",
+                    "Frame procesado stream_id=%s frame_id=%s detections=%s ",
                     project_data.stream_id,
                     frame_id,
                     len(yolo_results.boxes) if yolo_results else 0,
@@ -151,18 +151,19 @@ def processor_process(
                     # Añade una fila por deteccion al log tabular del stream.
                     timestamp = time.time()
                     rows = []
-                    json_detections = {"frame_id": frame_id, "timestamp": timestamp, "detections": []}
-                    for i , detection in yolo_results:
-                        json_detections["detections"].append({
-                            "index": i,
-                            "class": str(detection.class_id),
-                            "confidence": str(detection.confidence),
-                            "bbox": str(detection.bbox),
-                            "mask": "present" if detection.mask else "None",
-                            "centroid": str(detection.centroid),
-                        })
+                    for detection in yolo_results:
+                        rows.append(
+                            {
+                                "timestamp": timestamp,
+                                "frame_id": frame_id,
+                                "class": str(detection.class_id),
+                                "confidence": str(detection.confidence),
+                                "bbox": str(detection.bbox),
+                                "mask": "present" if detection.mask else "None",
+                            }
+                        )
                     if rows:
-                        pd.DataFrame(rows).to_csv(
+                        pd.DataFrame(rows, columns=DETECTION_LOG_COLUMNS).to_csv(
                             log_csv,
                             mode="a",
                             header=False,

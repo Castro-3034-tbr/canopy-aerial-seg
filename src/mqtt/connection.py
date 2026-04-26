@@ -19,7 +19,7 @@ def connect_mqtt(
     port: int,
     topic: str,
     keepalive: int = DEFAULT_MQTT_KEEPALIVE,
-) -> PahoMQTTClient:
+) -> PahoMQTTClient | None:
     """Inicializa un cliente MQTT y devuelve cliente, config y estado."""
     try:
         logger.info(
@@ -56,7 +56,7 @@ def connect_mqtt(
             port,
             topic,
         )
-
+        return None
 
 def disconnect_mqtt(
     client: PahoMQTTClient | None,

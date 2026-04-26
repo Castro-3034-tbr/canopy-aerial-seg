@@ -87,12 +87,13 @@ def start_stream(
 ) -> StreamStartedResponse:
     """Inicia un nuevo stream RTSP para procesamiento en tiempo real."""
     _require_runtime(request=request)
+    validated_rtsp_url = RtspURL(url=rtsp_url)
 
     # TODO: REHACER para adapatarla al proyecto y a los tipos de datos
     # Delega el alta del stream en el gestor central de procesos.
     return request.app.state.stream_manager.start(
         stream_id=stream_id,
-        rtsp_url= RtspURL(url=rtsp_url),
+        rtsp_url=validated_rtsp_url.url,
         save_log=save_log,
         save_inference=save_inference,
         confidence_threshold=confidence_threshold,
@@ -145,10 +146,12 @@ async def predict_file(
     yolo_model = request.app.state.yolo_model
 
     if not content_type or not content_type.startswith(("image/", "video/")):
-        return FileResponse(
-            path=Path("static/error.txt"),
-            media_type="text/plain",
-            filename="error.txt",
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                "Tipo de archivo no soportado. "
+                "Solo se aceptan contenidos image/* o video/*."
+            ),
         )
     elif content_type.startswith("image/"):
         # Procesa imagenes y genera una salida JPEG anotada.
