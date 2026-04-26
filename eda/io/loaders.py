@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Iterator
 
 import numpy as np
 from PIL import Image
@@ -61,15 +62,15 @@ def load_images(path: Path) -> ImagesLoaderResult:
 
     return ImagesLoaderResult(images=images, incorrect_images=incorrect)
 
-def iter_batch_images(images: list[ImageData]) -> list[np.ndarray]:
-    """Genera lotes de imágenes a partir de una lista de ImageData.
+def iter_images(images: list[ImageData]) -> Iterator[np.ndarray]:
+    """Genera imágenes individuales a partir de una lista de ImageData.
 
     Args:
         images (list[ImageData]): Lista de objetos ImageData.
         batch_size (int): Tamaño del lote.
 
     Yields:
-        list[np.ndarray]: Lote de imágenes como arrays numpy.
+        np.ndarray: Imagen como array numpy.
     """
 
     for image_data in images:
