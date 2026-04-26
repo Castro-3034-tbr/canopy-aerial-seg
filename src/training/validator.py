@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from src.core.types import ValidationConfig, YoloModel, YoloTaskResult
 
 
@@ -31,7 +33,7 @@ def yolo_validate(
         "imgsz": config.img_size,
         "device": config.device,
         "workers": config.workers,
-        "name": f"{output_path}/validation",
+        "name": str(Path(output_path) / "validation"),
     }
 
     # Ejecución de la validación
