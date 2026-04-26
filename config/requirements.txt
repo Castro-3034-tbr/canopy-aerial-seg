@@ -9,3 +9,5 @@ pandas
 ultralytics
 av
 paho-mqtt
+ultralytics
+pydantic>=2

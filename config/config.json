@@ -13,3 +13,41 @@
         "Device": "cpu"
     }
 }
+    "pathData": "./data/data.yaml",
+    "pathResult": "./results",
+
+    "task":{
+        "train": true,
+        "val": true,
+        "predict": true
+    },
+
+    "model":{
+        "path": "./models/yolov8m.pt"
+    },
+
+    "train":{
+        "augmentation": true,
+        "epochs": 2,
+        "batch_size": 2,
+        "img_size": 640,
+        "device": "cpu",
+        "seed": 42,
+        "patience": 10,
+        "workers": 4,
+        "mosaic": true
+    },
+
+    "val":{
+        "batch_size": 2,
+        "img_size": 640,
+        "device": "cpu",
+        "workers": 4
+    },
+
+    "predict":{
+        "source": "./data/test/images",
+        "img_size": 640,
+        "device": "cpu"
+    }
+}
