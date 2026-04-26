@@ -121,11 +121,10 @@ def compute_area_label_image_ratio(images: Sequence[ImageData], labels: Sequence
 
     ratios = []
 
-    for image, label in zip(images, labels):
+    for image, label in zip(images, labels, strict=True):
         for _, polygon in label.masks:
             area_polygon = calculate_area_polygon(polygon)
-            image_size = image.data.shape
-            area_image = image_size[1] * image_size[0]
+            area_image = image.width * image.height
             if area_image > 0:
                 ratios.append(area_polygon / area_image)
 
@@ -137,8 +136,8 @@ def compute_area_labels_image_ratio(images: Sequence[ImageData], labels: Sequenc
 
     ratios = []
 
-    for image, label in zip(images, labels):
-        image_area = image.data.shape[1] * image.data.shape[0]
+    for image, label in zip(images, labels, strict=True):
+        image_area = image.width * image.height
         labels_total_area = sum(calculate_area_polygon(polygon) for _, polygon in label.masks)
         ratios.append(labels_total_area / image_area if image_area > 0 else 0)
 

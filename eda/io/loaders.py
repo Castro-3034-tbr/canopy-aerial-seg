@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import cv2
+import numpy as np
+from PIL import Image
 
 from eda.core.types import (
     BboxLabel,
@@ -51,16 +52,30 @@ def load_images(path: Path) -> ImagesLoaderResult:
             incorrect.append(file_path)
             continue
 
-        # imread devuelve None si el archivo no es una imagen válida
-        # aunque tenga extensión correcta (archivo corrupto, etc.)
-        array = cv2.imread(str(file_path))
-        if array is None:
-            incorrect.append(file_path)
-            continue
+        # Carga la imagen usando OpenCV para obtener sus dimensiones y canales
+        with Image.open(file_path) as img:
+            width, height = img.size
+            channels = len(img.getbands())
 
-        images.append(ImageData(path=file_path, data=array))
+        images.append(ImageData(path=file_path, width=width, height=height, channels=channels))
 
     return ImagesLoaderResult(images=images, incorrect_images=incorrect)
+
+def iter_batch_images(images: list[ImageData]) -> list[np.ndarray]:
+    """Genera lotes de imágenes a partir de una lista de ImageData.
+
+    Args:
+        images (list[ImageData]): Lista de objetos ImageData.
+        batch_size (int): Tamaño del lote.
+
+    Yields:
+        list[np.ndarray]: Lote de imágenes como arrays numpy.
+    """
+
+    for image_data in images:
+        with Image.open(image_data.path) as img:
+            yield np.array(img)
+
 
 
 

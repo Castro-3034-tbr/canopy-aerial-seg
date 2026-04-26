@@ -211,22 +211,37 @@ def main() -> None:
 
     # Calculo de métricas para imágenes
     image_types = count_image_types(images)
+    print("Calculado el conteo de tipos de imágenes.")
     image_sizes = count_image_sizes(images)
+    print("Calculado el conteo de tamaños de imágenes.")
     image_aspect_ratios = count_image_aspect_ratios(images)
+    print("Calculado el conteo de relaciones de aspecto de imágenes.")
     images_brightness = compute_images_brightness(images)
+    print("Calculado el brillo medio de las imágenes.")
     images_contrast = compute_images_contrast(images)
+    print("Calculado el contraste de las imágenes.")
     images_blur = compute_images_blur(images)
+    print("Calculado el desenfoque de las imágenes.")
     
     # Calculo de métricas para etiquetas
     num_labels_per_image = count_labels_per_image(labels)
+    print("Calculado el conteo de etiquetas por imagen.")
     label_areas = compute_label_areas(labels)
+    print("Calculado el área de las etiquetas.")
     label_aspect_ratios = count_label_aspect_ratios(labels)
+    print("Calculado el conteo de relaciones de aspecto de las etiquetas.")
     label_area_ratios = compute_area_label_image_ratio(images, labels)
+    print("Calculado el ratio de área de las etiquetas respecto a la imagen.")
     label_area_ratios_per_image = compute_area_labels_image_ratio(images, labels)
+    print("Calculado el ratio de área total de las etiquetas respecto a la imagen.")
     labels_centers = compute_label_centers(labels)
+    print("Calculado el centroide de las etiquetas.")
     label_quadrants_x = count_label_quadrants_x(labels_centers)
+    print("Calculado el conteo de etiquetas por cuadrante X.")
     label_quadrants_y = count_label_quadrants_y(labels_centers)
+    print("Calculado el conteo de etiquetas por cuadrante Y.")
     labels_iou = compute_labels_iou(labels)
+    print("Calculado el IoU entre etiquetas.")
 
     # Guardar resultados
 

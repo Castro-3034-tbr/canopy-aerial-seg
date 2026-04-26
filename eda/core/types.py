@@ -58,19 +58,9 @@ class ImageData(StrictModel):
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     path: Path
-    data: np.ndarray
-
-    @field_validator("data")
-    @classmethod
-    def validar_array(cls, value: np.ndarray) -> np.ndarray:
-        """Verifica que el array represente una imagen válida."""
-        if value is None or value.size == 0:
-            raise ValueError("El array de imagen está vacío o es None.")
-        if value.ndim not in (2, 3):
-            raise ValueError(
-                f"Se esperaba un array 2D o 3D, recibido: {value.ndim}D."
-            )
-        return value
+    width: int = Field(..., ge=1 , description="Ancho de la imagen en píxeles")
+    height: int = Field(ge=1, description="Alto de la imagen en píxeles")
+    channels: int = Field(ge=1, description="Número de canales de color")
 
 
 class LabelData(StrictModel):
