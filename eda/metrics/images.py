@@ -1,7 +1,5 @@
 """Métricas EDA para imágenes."""
 
-#TODO: Revisar que esten correctos
-
 from __future__ import annotations
 
 from collections import Counter
@@ -12,7 +10,7 @@ import cv2
 import numpy as np
 
 from eda.core.types import AspectRatioCounts, ImageData, ImageSize, MetricValues
-from eda.io.loaders import iter_batch_images
+from eda.io.loaders import iter_images
 from eda.utils.color import color_to_gray_array
 
 
@@ -43,7 +41,7 @@ def compute_images_brightness(images: Sequence[ImageData]) -> MetricValues:
     """Calcula el brillo medio de cada imagen."""
     brightness_values: MetricValues = []
 
-    for image_array in iter_batch_images(list(images)):
+    for image_array in iter_images(list(images)):
         gray = color_to_gray_array(image_array)
         brightness_values.append(float(np.mean(gray)))
 
@@ -54,7 +52,7 @@ def compute_images_contrast(images: Sequence[ImageData]) -> MetricValues:
     """Calcula el contraste de cada imagen como desviación típica en gris."""
     contrast_values: MetricValues = []
 
-    for image_array in iter_batch_images(list(images)):
+    for image_array in iter_images(list(images)):
         gray = color_to_gray_array(image_array)
         contrast_values.append(float(np.std(gray)))
 
@@ -65,7 +63,7 @@ def compute_images_blur(images: Sequence[ImageData]) -> MetricValues:
     """Calcula el desenfoque usando la varianza del Laplaciano."""
     blur_values: MetricValues = []
 
-    for image_array in iter_batch_images(list(images)):
+    for image_array in iter_images(list(images)):
         gray = color_to_gray_array(image_array)
         blur_values.append(float(cv2.Laplacian(gray, cv2.CV_64F).var()))
 
