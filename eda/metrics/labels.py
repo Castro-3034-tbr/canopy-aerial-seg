@@ -1,7 +1,5 @@
 """Métricas EDA para etiquetas."""
 
-#TODO: Revisar que esten correctos
-
 from __future__ import annotations
 
 from collections import Counter
@@ -15,7 +13,6 @@ from eda.utils.geometry import(
 )
 from eda.core.types import (
     LabelData,
-    ImageData,
     LabelsCenters,
     LabelsPerImage,
     LabelsSizes,
@@ -34,6 +31,20 @@ def compute_label_areas(labels: Sequence[LabelData]) -> LabelsSizes:
             label_areas.append((area_percent))
 
     return label_areas
+
+def compute_labels_areas(labels_files: Sequence[LabelData]) -> LabelsSizes:
+    """Calcula el área que ocupa todas las mascaras en una imagen."""
+
+    labels_areas: LabelsSizes = []
+
+    for labels in labels_files:
+        area_total = 0.0
+        for _, polygon in labels.masks:
+            area_total += calculate_area_polygon(polygon) * 100.0
+        labels_areas.append(area_total )
+    return labels_areas
+
+
 
 def count_label_aspect_ratios(labels: Sequence[LabelData]) -> dict[str, int]:
     """Cuenta etiquetas por relación de aspecto usando su bounding box."""
@@ -114,31 +125,3 @@ def compute_labels_iou(labels: Sequence[LabelData]) -> MetricValues:
                 iou_values.append(calculate_iou(bbox1, bbox2))
 
     return iou_values
-
-def compute_area_label_image_ratio(images: Sequence[ImageData], labels: Sequence[LabelData]) -> MetricValues:
-    """Calculo de la porporcion de area cubierta por cada etiqueta en cada imagen."""
-    # Implementar otras métricas relevantes para las etiquetas
-
-    ratios = []
-
-    for image, label in zip(images, labels, strict=True):
-        for _, polygon in label.masks:
-            area_polygon = calculate_area_polygon(polygon)
-            area_image = image.width * image.height
-            if area_image > 0:
-                ratios.append(area_polygon / area_image)
-
-    return ratios
-
-def compute_area_labels_image_ratio(images: Sequence[ImageData], labels: Sequence[LabelData]) -> MetricValues:
-    """Calculo de la porporcion de area cubierta por cada etiqueta en cada imagen."""
-    # Implementar otras métricas relevantes para las etiquetas
-
-    ratios = []
-
-    for image, label in zip(images, labels, strict=True):
-        image_area = image.width * image.height
-        labels_total_area = sum(calculate_area_polygon(polygon) for _, polygon in label.masks)
-        ratios.append(labels_total_area / image_area if image_area > 0 else 0)
-
-    return ratios
