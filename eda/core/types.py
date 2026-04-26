@@ -112,9 +112,8 @@ class AnalysisResult(StrictModel):
 
     num_labels_per_image: LabelsPerImage = Field(default_factory=list)
     label_areas: LabelsSizes = Field(default_factory=list)
+    labels_areas: LabelsSizes = Field(default_factory=list)
     label_aspect_ratios: AspectRatioCounts = Field(default_factory=dict)
-    label_area_ratios: MetricValues = Field(default_factory=list)
-    label_area_ratios_per_image: MetricValues = Field(default_factory=list)
     labels_centers: LabelsCenters = Field(default_factory=list)
     label_quadrants_x: QuadrantCounts = Field(default_factory=_default_horizontal_quadrants)
     label_quadrants_y: QuadrantCounts = Field(default_factory=_default_vertical_quadrants)
