@@ -34,6 +34,3 @@ def configure_logging(log_filename: str = DEFAULT_LOG_FILENAME) -> None:
             logging.StreamHandler(),
         ],
     )
-
-    # Reduce ruido de librerias externas cuando no estamos depurando.
-    logging.getLogger("matplotlib").setLevel(logging.WARNING)
