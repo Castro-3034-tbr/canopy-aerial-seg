@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 from src.core.types import (
     PipelineConfig,
@@ -63,7 +64,7 @@ class YoloPipeline:
 
         logger.info("Iniciando ejecución del pipeline YOLO.")
 
-        data_directory = os.path.dirname(p=self.data_path)
+        data_directory = os.path.dirname(Path(self.data_path))
         clean_cache(directory=data_directory)
 
         # Entreno del modelo
@@ -86,11 +87,15 @@ class YoloPipeline:
 
         # Predicción con el modelo
         if task_config.predict:
-            source = predict_config.source or self.data_path
+            if predict_config.source is None:
+                raise RuntimeError(
+                    "Configuración inválida: 'predict.source' es obligatorio "
+                    "cuando 'task.predict' es true."
+                )
 
             results["predict"] = yolo_predict(
                 model=self.model,
-                source=source,
+                source=predict_config.source,
                 output_path=self.output_path,
                 config=predict_config,
             )
