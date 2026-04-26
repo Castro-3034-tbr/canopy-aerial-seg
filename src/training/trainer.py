@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from src.core.types import TrainConfig, YoloModel, YoloTaskResult
 
 
@@ -35,7 +37,7 @@ def yolo_train(
         "seed": config.seed,
         "patience": config.patience,
         "workers": config.workers,
-        "name": f"{output_path}/train",
+        "name": str(Path(output_path) / "train"),
         "mosaic": config.mosaic,
     }
 
