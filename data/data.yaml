@@ -2,5 +2,5 @@ train: ../train/images
 val: ../valid/images
 test: ../test/images
 
-nc: 0
+nc: 1
 names: ['test']
