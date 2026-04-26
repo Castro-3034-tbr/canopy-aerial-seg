@@ -1,4 +1,18 @@
 {
+    "API": {
+        "IP": "127.0.0.1",
+        "PORT": 8080
+    },
+    "SavePath": {
+        "Logs": "./outputs/logs",
+        "Inference": "./outputs/inference"
+    },
+    "Model": {
+        "Name": "yolo26n-seg",
+        "Path": "models/yolo26n-seg.pt",
+        "Device": "cpu"
+    }
+}
     "pathData": "./data/data.yaml",
     "pathResult": "./results",
 

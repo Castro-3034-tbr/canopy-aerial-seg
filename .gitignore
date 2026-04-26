@@ -1,3 +1,14 @@
+api/__pycache__/
+.trunk/
+core/__pycache__/
+config/__pycache__/
+data/__pycache__/
+logs/
+models/
+utils/__pycache__/
+tests/**
+__pycache__/
+data/
 dataset/**
 !dataset/.gitkeep
 output/**
