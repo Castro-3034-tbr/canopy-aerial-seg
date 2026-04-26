@@ -7,7 +7,7 @@ import logging
 from ultralytics import YOLO
 
 from src.core.config import load_config
-from src.core.constants import PROJECT_ROOT
+from src.core.constants import DEFAULT_CONFIG_PATH, PROJECT_ROOT
 from src.core.logger import configure_logging
 from src.training.pipeline import YoloPipeline
 from src.utils.filesystem import resolve_path
@@ -20,7 +20,7 @@ def main() -> int:
 
     # Configuracion de los elementos necesarios
     configure_logging()
-    config = load_config(path="config/config.json")
+    config = load_config(path=DEFAULT_CONFIG_PATH)
 
     # Resolucion de rutas
     data_path = resolve_path(value=config.pathData)
