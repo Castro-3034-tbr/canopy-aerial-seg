@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from src.core.types import PredictConfig, YoloModel, YoloTaskResult
 
+from pathlib import Path
+
 
 def yolo_predict(
     model: YoloModel,
@@ -33,7 +35,7 @@ def yolo_predict(
         "save": config.save_results,
         "save_txt": config.save_txt,
         "save_conf": config.save_conf,
-        "name": f"{output_path}/detect",
+        "name": str(Path(output_path) / "detect"),
         "exist_ok": config.exist_ok,
     }
     # Cast to proper types to satisfy type checker
@@ -43,17 +45,7 @@ def yolo_predict(
 
     # Ejecución de la inferencia
     try:
-        results = model.predict(
-            source=source,
-            conf=config.conf_threshold,
-            imgsz=config.img_size,
-            device=config.device,
-            save=config.save_results,
-            save_txt=config.save_txt,
-            save_conf=config.save_conf,
-            name=f"{output_path}/detect",
-            exist_ok=config.exist_ok,
-        )
+        results = model.predict(**predict_args)
         return results
 
     except Exception as exc:
