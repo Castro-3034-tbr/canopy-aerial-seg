@@ -8,10 +8,10 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from src.core.constants import DEFAULT_CONFIG_PATH
-from src.core.types import PipelineConfig
+from src.core.types import AppConfigModel
 
 
-def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> PipelineConfig:
+def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfigModel:
     """Carga la configuracion de la aplicacion desde un archivo JSON.
 
     Args:
@@ -19,11 +19,10 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> PipelineConfig:
 
     Raises:
         FileNotFoundError: Si el archivo no existe.
-        ValueError: Si el JSON no es valido o la configuracion no cumple
-            el esquema esperado.
+        ValueError: Si el JSON no es valido o no contiene un objeto.
 
     Returns:
-        PipelineConfig: Configuracion validada desde disco.
+        AppConfigModel: Configuracion cargada y validada desde disco.
     """
     # Normaliza la ruta para trabajar siempre con objetos Path.
     config_path = Path(path)
@@ -48,9 +47,10 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> PipelineConfig:
             "Formato de configuracion invalido: se esperaba un objeto JSON."
         )
 
+    # Valida estructura, tipos y restricciones de la configuracion.
     try:
-        return PipelineConfig.model_validate(obj=config)
+        return AppConfigModel.model_validate(config)
     except ValidationError as exc:
         raise ValueError(
-            f"Configuracion invalida:\n{exc}"
+            f"Error de validacion en la configuracion: {exc}"
         ) from exc
