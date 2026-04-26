@@ -1,4 +1,4 @@
-"""Utilities para gestion de sistema de ficheros."""
+"""Utilidades para gestion de sistema de ficheros."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ def clean_cache(directory: str) -> None:
     """
     logger.info(f"Buscando archivos de cache en: {directory}")
 
-    # Busqua de archivos de cache
+    # Busqueda de archivos de cache
     cache_paths = find_cache_files(directory=directory)
 
     if not cache_paths:
