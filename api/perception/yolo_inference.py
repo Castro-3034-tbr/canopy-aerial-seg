@@ -22,7 +22,6 @@ from common.types.model import InferenceDetection
 from api.perception.postprocessing import calculate_centroid, extract_vertices
 from common.types.geometry import Coordinates
 from common.types.media import FrameArray
-from common.types.model import InferenceDetection
 
 
 def initialize_model(model_path: str, device: str = "cpu") -> ultralytics.YOLO:
@@ -69,7 +68,7 @@ def extract_detections(results: Any) -> list[InferenceDetection]:
         y2_norm = float(y2 / frame_height)
         vertices = extract_vertices(mask=masks[index])
 
-        InferenceDetection = InferenceDetection(
+        detection = InferenceDetection(
             class_id=int(class_id),
             confidence=float(confidences[index]),
             bbox=BoundingBox(
@@ -82,7 +81,7 @@ def extract_detections(results: Any) -> list[InferenceDetection]:
             frame_mask=masks[index],
             centroid=calculate_centroid(polygon=vertices)
         )
-        detections.append(InferenceDetection)
+        detections.append(detection)
 
     return detections
 
@@ -92,14 +91,14 @@ def draw_results(frame: FrameArray, results: list[InferenceDetection]) -> FrameA
     height, width = frame.shape[:2]
 
     # Iteraccion por cada deteccion
-    for InferenceDetection in results:
+    for detection in results:
         pt1 = (
-            int(InferenceDetection.bbox.p1.x * width),
-            int(InferenceDetection.bbox.p1.y * height),
+            int(detection.bbox.p1.x * width),
+            int(detection.bbox.p1.y * height),
         )
         pt2 = (
-            int(InferenceDetection.bbox.p2.x * width),
-            int(InferenceDetection.bbox.p2.y * height),
+            int(detection.bbox.p2.x * width),
+            int(detection.bbox.p2.y * height),
         )
 
         # Dibujo del bounding box
@@ -114,7 +113,7 @@ def draw_results(frame: FrameArray, results: list[InferenceDetection]) -> FrameA
         # Dibujo del centroide
         cv2.circle(
             frame,
-            (int(InferenceDetection.centroid.x * width), int(InferenceDetection.centroid.y * height)),
+            (int(detection.centroid.x * width), int(detection.centroid.y * height)),
             CENTROID_RADIUS,
             CENTROID_COLOR,
             -1,
@@ -122,7 +121,7 @@ def draw_results(frame: FrameArray, results: list[InferenceDetection]) -> FrameA
 
         # Dibujo de la mascara
         colored_mask = np.zeros_like(frame)
-        colored_mask[InferenceDetection.frame_mask > DEFAULT_MASK_THRESHOLD] = MASK_COLOR
+        colored_mask[detection.frame_mask > DEFAULT_MASK_THRESHOLD] = MASK_COLOR
         frame = np.asarray(
             cv2.addWeighted(
             frame,
@@ -135,7 +134,7 @@ def draw_results(frame: FrameArray, results: list[InferenceDetection]) -> FrameA
         )
 
         # Dibujo de la etiqueta de clase y confianza
-        label = f"{InferenceDetection.class_id}: {InferenceDetection.confidence:.2f}"
+        label = f"{detection.class_id}: {detection.confidence:.2f}"
         cv2.putText(
             frame,
             label,
