@@ -1,3 +1,8 @@
+"""
+Módulo de utilidades para el cálculo del Ground Sample Distance (GSD) en imágenes aéreas.
+"""
+
+from __future__ import annotations
 
 def calculate_gsd(image_width:tuple[int, int], sensor_width: tuple[float, float], focal_length:float, altitude:float) -> tuple[float, float]:
     """

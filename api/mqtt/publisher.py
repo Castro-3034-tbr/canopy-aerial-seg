@@ -20,6 +20,7 @@ def publish_message(
 ) -> None:
     """Publica un lote de detecciones serializado en el topic configurado."""
 
+    #TODO: Ajustarlo
     topic = getattr(client, "topic", None)
     broker = getattr(client, "broker", "desconocido")
     port = getattr(client, "port", "desconocido")

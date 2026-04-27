@@ -7,7 +7,6 @@ from typing import Any
 import cv2
 import numpy as np
 
-from api.core.constants import DEFAULT_MASK_THRESHOLD
 from common.types.model import InferenceDetection
 from common.types.geometry import Coordinates, Polygon, Mask
 from common.types.media import FrameMask,MaskMetric
@@ -18,20 +17,30 @@ def calculate_centroid(polygon: Polygon) -> Coordinates:
 
     Si el área es casi cero, devuelve la media de los puntos para evitar
     divisiones por cero.
+    
+    Args:
+        polygon: Lista de puntos que definen el polígono, con coordenadas normalizadas
+    Returns:
+        Coordenadas del centroide con valores normalizados entre 0 y 1.
+    
     """
 
+    # Si no hay puntos, no se puede calcular un centroide válido.
     if not polygon:
         return Coordinates(x=-1.0, y=-1.0)
 
+    # Extraemos las coordenadas x e y de los puntos del polígono.
     x = np.array([point.x for point in polygon], dtype=np.float64)
     y = np.array([point.y for point in polygon], dtype=np.float64)
 
+    # Calculamos el área del polígono usando la fórmula del área de un polígono
     cross = x * np.roll(y, -1) - np.roll(x, -1) * y
     area2 = np.sum(cross)
 
     if abs(area2) < 1e-12:
         return Coordinates(x=float(np.mean(x)), y=float(np.mean(y)))
 
+    # Calculamos el centroide usando la fórmula del centroide de un polígono
     cx = np.sum((x + np.roll(x, -1)) * cross) / (3 * area2)
     cy = np.sum((y + np.roll(y, -1)) * cross) / (3 * area2)
 
@@ -42,7 +51,12 @@ def calculate_centroid(polygon: Polygon) -> Coordinates:
 
 
 def extract_vertices(mask: FrameMask) -> Mask:
-    """Extrae los vertices del contorno principal de una mascara."""
+    """Extrae los vertices del contorno principal de una mascara.
+    Args:
+        mask (FrameMask): Mascara binaria del objeto detectado.
+    Returns:
+        Mask: Lista de coordenadas normalizadas de los vertices del contorno.
+    """
     # Si no hay mascara, no hay contorno que analizar.
     if len(mask) == 0:
         return []
@@ -59,85 +73,27 @@ def extract_vertices(mask: FrameMask) -> Mask:
     # Selecciona el contorno mas grande asumiendo que es el objeto principal.
     contour = max(contours, key=cv2.contourArea)
     mask_height, mask_width = mask.shape[:2]
+    pts = contour.reshape(-1, 2)
     vertices = [
         Coordinates(
-            x=float(point[0][0] / mask_width),
-            y=float(point[0][1] / mask_height),
+            x=float(float(x) / mask_width),
+            y=float(float(y) / mask_height),
         )
-        for point in contour
+        for x, y in pts
     ]
     return vertices
 
-def crop_mask(
-    masks : list[Mask],
-    image_shape : tuple[int,int],
-    overlap: tuple[float,float]
-)-> list[FrameMask]:
-    """Recorta máscaras eliminando solo la parte en solape izquierdo y superior.
-
-    Args:
-        masks (list[FrameMask]): _description_
-        image (tuple[int,int]): _description_
-        overlap (tuple[float,float]): _description_
-
-    Returns:
-        list[FrameMask]: Máscaras recortadas conservando el formato de array.
-    """
-    #TODO: Hacerlo bien
-    # Obtenemos las dimensiones de la imagen para calcular los limites de recorte
-    h, w = image_shape
-
-    # Calculamos los limites de recorte en pixeles a partir del porcentaje de solape
-    left_limit = int(overlap[0] * w)
-    top_limit = int(overlap[1] * h)
-
-    # Crear ROI válida
-    valid_region = np.ones((h, w), dtype=np.uint8)
-    valid_region[:, :left_limit] = 0     # eliminar izquierda
-    valid_region[:top_limit, :] = 0      # eliminar arriba
-
-    cropped_masks = []
-
-    for mask in masks:
-        cropped = mask * valid_region  # AND lógico
-
-        # Opcional: descartar si queda demasiado pequeña
-        if np.sum(cropped) > 0:
-            cropped_masks.append(cropped)
-
-    return cropped_masks
-
-
-def process_mask(masks: FrameMask, gsd: float) -> list[MaskMetric]:
-    """Calcula metricas basicas para un conjunto de mascaras."""
-
-    #TODO: Refactorizar para:
-    # - Calcular el area de la mascara mediante los pixeles 
-    # - Calcular el area real usando el GSD (Ground Sample Distance) 
-
-    # Calcula el area del frame para normalizar las metricas.
-    frame_height, frame_width = masks.shape[1:3]
-    frame_area = frame_width * frame_height
-    mask_metrics = []
-
-    # Resume cada mascara con area absoluta y proporcion relativa.
-    for index, mask in enumerate(masks):
-        mask_area = int(np.sum(mask > DEFAULT_MASK_THRESHOLD))
-        area_ratio = float(mask_area / frame_area) if frame_area else 0.0
-        mask_metrics.append(
-            {
-                "mask_index": index,
-                "mask_area": mask_area,
-                "frame_area": frame_area,
-                "area_ratio": area_ratio,
-            }
-        )
-
-    return mask_metrics
-
 
 def convert_detections_to_json(detections: list[InferenceDetection], frame_id: int | None) -> dict[str, Any]:
-    """Convierte las detecciones a un formato JSON serializable."""
+    """Convierte las detecciones a un formato JSON serializable.
+    Args:
+        detections (list[InferenceDetection]): Lista de detecciones con coordenadas normalizadas.
+        frame_id (int | None): Identificador del frame asociado a las detecciones, si
+            está disponible.
+    Returns:
+        dict[str, Any]: Diccionario con la información de las detecciones listo para ser convertido a JSON.
+    """
+    
     if frame_id is not None:
         json_detections: dict[str, Any] = {"frame_id": frame_id}
     else:

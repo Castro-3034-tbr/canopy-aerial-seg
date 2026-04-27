@@ -4,6 +4,8 @@ import logging
 import os
 from pathlib import Path
 
+from common.types.model import YoloModel
+from common.utils.filesystem import clean_cache
 from train.core.types import (
     PipelineResults,
     PredictConfig,
@@ -11,9 +13,7 @@ from train.core.types import (
     TrainConfig,
     TrainPipelineConfig,
     ValidationConfig,
-    YoloModel,
 )
-from common.utils.filesystem import clean_cache
 from train.inference.predictor import yolo_predict
 from train.training.trainer import yolo_train
 from train.training.validator import yolo_validate

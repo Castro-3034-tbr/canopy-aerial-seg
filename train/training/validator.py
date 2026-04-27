@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from train.core.types import ValidationConfig, YoloModel, YoloTaskResult
+from common.types.model import YoloModel
+from train.core.types import ValidationConfig, YoloResult
 
 
 def yolo_validate(
@@ -10,7 +11,7 @@ def yolo_validate(
     data_path: str,
     output_path: str,
     config: ValidationConfig,
-) -> YoloTaskResult:
+) -> YoloResult:
     """Ejecuta la validación de un modelo YOLO.
 
     Args:
@@ -20,7 +21,7 @@ def yolo_validate(
         config (ValidationConfig): Configuración validada de validación.
 
     Returns:
-        YoloTaskResult: Resultado devuelto por Ultralytics.
+        YoloResult: Resultado devuelto por Ultralytics.
 
     Raises:
         RuntimeError: Si falla la validación.

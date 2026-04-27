@@ -14,8 +14,7 @@ from eda.core.types import (
     LabelsLoaderResult,
     MaskLabel,
 )
-
-from eda.io.parses import parse_polygon_label, parse_bbox
+from eda.io.parses import parse_bbox, parse_polygon_label
 
 # Extensiones válidas como frozenset para O(1) lookup
 _IMAGE_EXTENSIONS: frozenset[str] = frozenset({".png", ".jpg", ".jpeg"})
@@ -58,9 +57,12 @@ def load_images(path: Path) -> ImagesLoaderResult:
             width, height = img.size
             channels = len(img.getbands())
 
-        images.append(ImageData(path=file_path, width=width, height=height, channels=channels))
+        images.append(
+            ImageData(path=file_path, width=width, height=height, channels=channels)
+        )
 
     return ImagesLoaderResult(images=images, incorrect_images=incorrect)
+
 
 def iter_images(images: list[ImageData]) -> Iterator[np.ndarray]:
     """Genera imágenes individuales a partir de una lista de ImageData.
@@ -76,8 +78,6 @@ def iter_images(images: list[ImageData]) -> Iterator[np.ndarray]:
     for image_data in images:
         with Image.open(image_data.path) as img:
             yield np.array(img)
-
-
 
 
 def load_labels(path: Path) -> LabelsLoaderResult:
@@ -120,14 +120,12 @@ def load_labels(path: Path) -> LabelsLoaderResult:
                 incorrect.append(file_path)
                 continue
 
-            #Construimos la bbox a partir del polígono
+            # Construimos la bbox a partir del polígono
             bbox = parse_bbox(parsed[1])
 
             masks.append((parsed[0], parsed[1]))
             bboxes.append((parsed[0], bbox))
 
-        labels.append(
-            LabelData(path=file_path, masks=masks, bboxes=bboxes)
-        )
+        labels.append(LabelData(path=file_path, masks=masks, bboxes=bboxes))
 
     return LabelsLoaderResult(labels=labels, incorrect_labels=incorrect)

@@ -11,19 +11,17 @@ from pydantic import FilePath
 
 from common.types.base import StrictModel
 
-
 Imagen: TypeAlias = NDArray[np.uint8]
 FrameArray: TypeAlias = Imagen
 FrameMask: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
 OutputPathResult: TypeAlias = tuple[Path, str]
 
+
 class MaskMetric(StrictModel):
     """Métricas resumidas de una máscara."""
 
-    mask_index: int
-    mask_area: int
-    frame_area: int
-    area_ratio: float
+    index: int
+    area: float
 
 
 class FramePackage(StrictModel):

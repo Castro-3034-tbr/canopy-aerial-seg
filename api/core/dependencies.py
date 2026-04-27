@@ -8,13 +8,13 @@ from typing import AsyncIterator, cast
 
 from fastapi import FastAPI
 
-from api.routes.routes import router
 from api.core.config import load_api_config
 from api.core.constants import APP_DESCRIPTION, APP_TITLE, APP_VERSION
 from api.core.data_init import init_runtime_state
 from api.core.types import AppRuntime, GlobalManager
 from api.perception.yolo_inference import initialize_model
 from api.processes.stream_manager import StreamManager
+from api.routes.routes import router
 from common.logger import configure_logging
 
 

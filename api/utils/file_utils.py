@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-import ultralytics
-
 import cv2
 import numpy as np
 from fastapi import HTTPException
@@ -20,12 +18,13 @@ from api.core.constants import (
     VIDEO_MEDIA_TYPE,
 )
 from common.types.media import OutputPathResult
+from common.types.model import YoloModel
 
 from api.perception.yolo_inference import draw_results, predict
 
 
 def process_image(
-    yolo_model: ultralytics.YOLO,
+    yolo_model: YoloModel,
     contents: bytes,
     confidence_threshold: float,
 ) -> OutputPathResult:
@@ -74,7 +73,7 @@ def process_image(
 
 
 def process_video(
-    yolo_model: ultralytics.YOLO,
+    yolo_model: YoloModel,
     contents: bytes,
     confidence_threshold: float,
 ) -> OutputPathResult:

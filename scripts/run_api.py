@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+
 import uvicorn
 
+from api.core.config import load_api_config
 from api.core.dependencies import create_app
 from api.core.types import ApiConfig
-from api.core.config import load_api_config
-from common.logger import configure_logging
 from common.constants import CONFIG_DIR
+from common.logger import configure_logging
 
 # Expone una app ligera; el runtime pesado se construye en startup.
 app = create_app()

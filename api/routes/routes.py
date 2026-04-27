@@ -85,12 +85,14 @@ def start_stream(
         alias="mqttTopic",
         description="Topic MQTT para publicar detecciones.",
     ),
+    
 ) -> StreamStartedResponse:
     """Inicia un nuevo stream RTSP para procesamiento en tiempo real."""
     _require_runtime(request=request)
     validated_rtsp_url = RtspURL(url=rtsp_url)
 
-    # TODO: REHACER para adapatarla al proyecto y a los tipos de datos
+    # TODO: Añidir parametos de vuelo
+
     # Delega el alta del stream en el gestor central de procesos.
     return request.app.state.stream_manager.start(
         stream_id=stream_id,
@@ -122,6 +124,22 @@ def stop_stream(
     # Si no llega identificador, el gestor detendra todos los streams.
     return request.app.state.stream_manager.stop(stream_id=stream_id)
 
+@router.post("/analysis/folder")
+def analyze_folder(
+    request: Request,
+    folder_path: str = cast(str, Query(
+        ...,
+        alias="folderPath",
+        description="Ruta del directorio a analizar.",
+    )),
+    confidence_threshold: float = Query(
+        default=DEFAULT_CONFIDENCE_THRESHOLD,
+        alias="confidenceThreshold",
+        description="Umbral de confianza para filtrar detecciones.",
+    ),
+) -> dict[str, str]:
+    """Analiza un directorio completo de imagenes o videos y devuelve un resumen."""
+    _require_runtime(request=request)
 
 @router.post("/predict/file")
 async def predict_file(

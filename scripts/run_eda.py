@@ -1,8 +1,28 @@
-
 import os
+from pathlib import Path
+
 from common.logger import configure_logging
+from eda.core.types import AnalysisResult
 from eda.io.loaders import load_images, load_labels
 from eda.io.writers import save_results
+from eda.metrics.images import (
+    compute_images_blur,
+    compute_images_brightness,
+    compute_images_contrast,
+    count_image_aspect_ratios,
+    count_image_sizes,
+    count_image_types,
+)
+from eda.metrics.labels import (
+    compute_label_areas,
+    compute_label_centers,
+    compute_labels_areas,
+    compute_labels_iou,
+    count_label_aspect_ratios,
+    count_label_quadrants_x,
+    count_label_quadrants_y,
+    count_labels_per_image,
+)
 from eda.visualization.density_plot import plot_density_center
 from eda.visualization.graphic_plot import (
     plot_boxplot,
@@ -10,34 +30,8 @@ from eda.visualization.graphic_plot import (
     plot_count_bars,
 )
 
-from eda.core.types import (
-    AnalysisResult
-)
 
-from eda.metrics.images import (
-    count_image_types,
-    count_image_sizes,
-    count_image_aspect_ratios,
-    compute_images_brightness,
-    compute_images_contrast,
-    compute_images_blur,
-)
-
-from eda.metrics.labels import (
-    compute_label_areas,
-    compute_labels_areas,
-    count_label_aspect_ratios,
-    compute_label_centers,
-    count_label_quadrants_x,
-    count_label_quadrants_y,
-    count_labels_per_image,
-    compute_labels_iou,
-)
-
-
-from pathlib import Path
-
-def _generate_plots(results: AnalysisResult, dir : Path) -> None:
+def _generate_plots(results: AnalysisResult, dir: Path) -> None:
     """Genera gráficos EDA a partir de las métricas calculadas."""
 
     if not dir.exists():
@@ -186,6 +180,7 @@ def _generate_plots(results: AnalysisResult, dir : Path) -> None:
         output_path=dir / "labels_centers_density.png",
     )
 
+
 def main() -> None:
     """Punto de entrada principal del programa."""
     # Definicion de rutas de datos y resultados
@@ -212,7 +207,7 @@ def main() -> None:
 
     labels = labels_loader.labels
     incorrect_labels = labels_loader.incorrect_labels
-    
+
     print(f"Cargadas {len(images)} imágenes y {len(labels)} archivos de etiquetas.")
 
     # Calculo de métricas para imágenes
@@ -228,7 +223,7 @@ def main() -> None:
     print("Calculado el contraste de las imágenes.")
     images_blur = compute_images_blur(images)
     print("Calculado el desenfoque de las imágenes.")
-    
+
     # Calculo de métricas para etiquetas
     num_labels_per_image = count_labels_per_image(labels)
     print("Calculado el conteo de etiquetas por imagen.")
@@ -252,8 +247,8 @@ def main() -> None:
     results = AnalysisResult(
         images=images,
         labels=labels,
-        incorrect_images = incorrect_images,
-        incorrect_labels = incorrect_labels,
+        incorrect_images=incorrect_images,
+        incorrect_labels=incorrect_labels,
         image_types=image_types,
         image_sizes=image_sizes,
         image_aspect_ratios=image_aspect_ratios,
@@ -268,10 +263,10 @@ def main() -> None:
         label_quadrants_x=label_quadrants_x,
         label_quadrants_y=label_quadrants_y,
         labels_iou=labels_iou,
-    )  
+    )
     save_results(results, RESULTS_FILE)
     _generate_plots(results=results, dir=PLOTS_DIR)
-    
+
 
 if __name__ == "__main__":
     main()

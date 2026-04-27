@@ -11,10 +11,7 @@ from pydantic import Field, field_validator
 from typing_extensions import TypedDict
 
 from common.types.base import StrictModel
-from common.types.media import (
-    Imagen,
-    FramePackage,
-)
+from common.types.media import FramePackage, Imagen
 from common.types.model import InferenceDetection
 
 
@@ -235,26 +232,6 @@ class GlobalManager(Protocol):
     def Event(self) -> EventLike: ...
 
     def shutdown(self) -> None: ...
-
-
-@runtime_checkable
-class YoloModel(Protocol):
-    """Interfaz requerida del wrapper de inferencia."""
-
-    def predict(
-        self,
-        frame: Imagen,
-        confidence_threshold: float = 0.0,
-        debug: bool = False,
-    ) -> list[InferenceDetection]: ...
-
-    def extract_detections(self, results: Any) -> list[InferenceDetection]: ...
-
-    def draw_results(
-        self,
-        frame: Imagen,
-        results: list[InferenceDetection],
-    ) -> Imagen: ...
 
 
 class AppRuntime(TypedDict):

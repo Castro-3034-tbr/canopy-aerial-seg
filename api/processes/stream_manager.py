@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import multiprocessing
 from uuid import uuid4
-import ultralytics
 
 from fastapi import HTTPException
 
@@ -33,6 +32,7 @@ from api.core.types import (
     StreamStoppedResponse,
     StreamsHealthResponse,
 )
+from common.types.model import YoloModel
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class StreamManager:
         model_config: ModelConfig,
         save_path_config: SavePathConfig,
         runtime_state: RuntimeState,
-        yolo_model: ultralytics.YOLO,
+        yolo_model: YoloModel,
     ) -> None:
         """Inicializa el StreamManager con la configuración del modelo, las rutas de guardado y el estado de ejecución compartido.
 

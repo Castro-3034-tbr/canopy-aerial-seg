@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TypeAlias, TypedDict
+from typing import TypedDict
 
 from pydantic import Field, field_validator, model_validator
-from ultralytics import YOLO
 
 from common.types.base import StrictModel
+from common.types.model import YoloResult
 from common.utils.filesystem import resolve_path
-
-YoloTaskResult = object
-YoloModel: TypeAlias = YOLO
 
 
 def _validate_workers_count(value: int, field_name: str) -> int:
@@ -226,9 +223,9 @@ class TrainPipelineConfig(StrictModel):
 class PipelineResults(TypedDict, total=False):
     """Resultados devueltos por las etapas del pipeline."""
 
-    train: YoloTaskResult
-    val: YoloTaskResult
-    predict: YoloTaskResult
+    train: YoloResult
+    val: YoloResult
+    predict: YoloResult
 
 
 AppConfig = TrainPipelineConfig

@@ -140,6 +140,7 @@ def processor_process(
                 
 
                 # Publica el lote actual de detecciones en MQTT.
+                #TODO: Ajustar el formato del payload a lo que se necesite en el cliente MQTT.
                 result_json = convert_detections_to_json(detections=yolo_results, frame_id=frame_id)
                 publish_message(
                     client=mqtt_client,

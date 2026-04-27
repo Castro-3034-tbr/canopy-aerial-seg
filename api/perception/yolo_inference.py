@@ -22,9 +22,10 @@ from common.types.model import InferenceDetection
 from api.perception.postprocessing import calculate_centroid, extract_vertices
 from common.types.geometry import Coordinates
 from common.types.media import FrameArray
+from common.types.model import YoloModel
 
 
-def initialize_model(model_path: str, device: str = "cpu") -> ultralytics.YOLO:
+def initialize_model(model_path: str, device: str = "cpu") -> YoloModel:
     """Inicializa el modelo YOLO con la ruta y el dispositivo indicados."""
     # Carga el modelo una sola vez y lo mueve al dispositivo elegido.
     model = ultralytics.YOLO(model_path)
@@ -32,7 +33,7 @@ def initialize_model(model_path: str, device: str = "cpu") -> ultralytics.YOLO:
     return model
 
 def predict(
-    model: ultralytics.YOLO,
+    model: YoloModel,
     frame: FrameArray,
     confidence_threshold: float = 0.0,
     debug: bool = False,

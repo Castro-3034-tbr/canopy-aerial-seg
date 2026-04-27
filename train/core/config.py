@@ -3,6 +3,7 @@ config.py (training)
 """
 
 from pathlib import Path
+
 from pydantic import ValidationError
 
 from common.loader_config import load_json
@@ -21,6 +22,4 @@ def load_training_config(path: str | Path) -> AppConfig:
     try:
         return AppConfig.model_validate(data)
     except ValidationError as exc:
-        raise ValueError(
-            f"Error de validacion en training config: {exc}"
-        ) from exc
+        raise ValueError(f"Error de validacion en training config: {exc}") from exc

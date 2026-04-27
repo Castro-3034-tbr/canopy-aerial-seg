@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from train.core.types import PredictConfig, YoloModel, YoloTaskResult
-
 from pathlib import Path
+
+from common.types.model import YoloModel
+from train.core.types import PredictConfig, YoloResult
 
 
 def yolo_predict(
@@ -10,7 +11,7 @@ def yolo_predict(
     source: str,
     output_path: str,
     config: PredictConfig,
-) -> YoloTaskResult:
+) -> YoloResult:
     """Ejecuta inferencia con un modelo YOLO.
 
     Args:
@@ -20,7 +21,7 @@ def yolo_predict(
         config (PredictConfig): Configuración validada de inferencia.
 
     Returns:
-        YoloTaskResult: Resultado devuelto por Ultralytics.
+        YoloResult: Resultado devuelto por Ultralytics.
 
     Raises:
         RuntimeError: Si falla la inferencia.

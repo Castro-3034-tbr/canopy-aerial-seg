@@ -33,6 +33,8 @@ def connect_mqtt(
         # Configuramos el cliente MQTT y sus callbacks.
         client = mqtt.Client(client_id=client_id)
 
+        # FIXME: Cambiar la forma de guardar el tipo de datos para poder añadir los elementos de configuracion
+        
         # Guardamos la configuracion en user_data para que el publicador y los logs
         # puedan acceder a ella sin depender de variables externas.
         client.broker = broker

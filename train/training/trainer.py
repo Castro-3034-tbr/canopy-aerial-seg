@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from train.core.types import TrainConfig, YoloModel, YoloTaskResult
+from common.types.model import YoloModel
+from train.core.types import TrainConfig, YoloResult
 
 
 def yolo_train(
@@ -10,7 +11,7 @@ def yolo_train(
     data_path: str,
     output_path: str,
     config: TrainConfig,
-) -> YoloTaskResult:
+) -> YoloResult:
     """Ejecuta el entrenamiento de un modelo YOLO.
 
     Args:
@@ -20,7 +21,7 @@ def yolo_train(
         config (TrainConfig): Configuración validada de entrenamiento.
 
     Returns:
-        YoloTaskResult: Resultado devuelto por Ultralytics.
+        YoloResult: Resultado devuelto por Ultralytics.
 
     Raises:
         RuntimeError: Si falla el entrenamiento.
@@ -66,6 +67,4 @@ def yolo_train(
         return results
 
     except Exception as exc:
-        raise RuntimeError(
-            f"Error durante el entrenamiento YOLO: {exc}"
-        ) from exc
+        raise RuntimeError(f"Error durante el entrenamiento YOLO: {exc}") from exc
