@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from common.loader_config import load_json
-from core.types import AppConfig
+from train.core.types import AppConfig
 
 
 def load_training_config(path: str | Path) -> AppConfig:
