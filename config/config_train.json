@@ -1,32 +1,15 @@
 {
-    "API": {
-        "IP": "127.0.0.1",
-        "PORT": 8080
-    },
-    "SavePath": {
-        "Logs": "./outputs/logs",
-        "Inference": "./outputs/inference"
-    },
-    "Model": {
-        "Name": "yolo26n-seg",
-        "Path": "models/yolo26n-seg.pt",
-        "Device": "cpu"
-    }
-}
     "pathData": "./data/data.yaml",
     "pathResult": "./results",
-
-    "task":{
+    "task": {
         "train": true,
         "val": true,
         "predict": true
     },
-
-    "model":{
+    "model": {
         "path": "./models/yolov8m.pt"
     },
-
-    "train":{
+    "train": {
         "augmentation": true,
         "epochs": 2,
         "batch_size": 2,
@@ -37,15 +20,13 @@
         "workers": 4,
         "mosaic": true
     },
-
-    "val":{
+    "val": {
         "batch_size": 2,
         "img_size": 640,
         "device": "cpu",
         "workers": 4
     },
-
-    "predict":{
+    "predict": {
         "source": "./data/test/images",
         "img_size": 640,
         "device": "cpu"
