@@ -10,7 +10,7 @@ from pydantic import Field, field_validator, model_validator
 from ultralytics import YOLO
 
 from common.types.base import StrictModel
-from train.utils.filesystem import resolve_path
+from common.utils.filesystem import resolve_path
 
 YoloTaskResult = object
 YoloModel: TypeAlias = YOLO

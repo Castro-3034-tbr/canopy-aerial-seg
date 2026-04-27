@@ -13,10 +13,10 @@ from train.core.types import (
     ValidationConfig,
     YoloModel,
 )
+from common.utils.filesystem import clean_cache
 from train.inference.predictor import yolo_predict
 from train.training.trainer import yolo_train
 from train.training.validator import yolo_validate
-from train.utils.filesystem import clean_cache
 
 logger = logging.getLogger(__name__)
 
