@@ -7,26 +7,15 @@ from typing import Any, TypeAlias
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import Field, FilePath
+from pydantic import FilePath
 
 from common.types.base import StrictModel
-from common.types.geometry import Coordinates, BoundingBox, Mask
 
 
 Imagen: TypeAlias = NDArray[np.uint8]
+FrameArray: TypeAlias = Imagen
 FrameMask: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
 OutputPathResult: TypeAlias = tuple[Path, str]
-
-class InferenceDetection(StrictModel):
-    """Detección serializable generada por inferencia."""
-
-    class_id: int
-    confidence: float = Field(ge=0.0, le=1.0)
-    bbox: BoundingBox
-    mask: Mask
-    frame_mask: FrameMask
-    centroid: Coordinates
-
 
 class MaskMetric(StrictModel):
     """Métricas resumidas de una máscara."""

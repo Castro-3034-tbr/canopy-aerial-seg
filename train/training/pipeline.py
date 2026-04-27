@@ -5,11 +5,11 @@ import os
 from pathlib import Path
 
 from train.core.types import (
-    PipelineConfig,
     PipelineResults,
     PredictConfig,
     TaskConfig,
     TrainConfig,
+    TrainPipelineConfig,
     ValidationConfig,
     YoloModel,
 )
@@ -45,11 +45,11 @@ class YoloPipeline:
         self.data_path = data_path
         self.output_path = output_path
 
-    def run(self, config: PipelineConfig) -> PipelineResults:
+    def run(self, config: TrainPipelineConfig) -> PipelineResults:
         """Ejecuta las etapas activadas en la configuración.
 
         Args:
-            config (PipelineConfig): Configuración global validada
+            config (TrainPipelineConfig): Configuración global validada
                 del pipeline.
 
         Returns:

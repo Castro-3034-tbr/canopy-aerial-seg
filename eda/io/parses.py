@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from eda.core.types import BoundingBox, Coordinates, MaskLabel, Polygon
 import logging
+from common.types.geometry import BoundingBox, Coordinates, Polygon
+from common.types.model import MaskLabel
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ def parse_polygon_label(label: str) -> MaskLabel | None:
         logger.debug(f"Error al construir Coordinates: {exc}")
         return None
 
-    return MaskLabel((class_id, polygon))
+    return (class_id, polygon)
 
 def parse_bbox(polygon: Polygon) -> BoundingBox:
     """Deriva una bounding box mínima a partir de un polígono de Coordinates.

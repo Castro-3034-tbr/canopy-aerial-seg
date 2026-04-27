@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from eda.core.types import Coordinates, Polygon, BoundingBox
+from common.types.geometry import BoundingBox, Coordinates, Polygon
 
 
 def calculate_area_polygon(polygon: Polygon) -> float:

@@ -11,13 +11,13 @@ import cv2
 import pandas as pd
 import ultralytics
 
-from train.mqtt.connection import (
+from api.mqtt.connection import (
     connect_mqtt,
     disconnect_mqtt,
 )
-from train.mqtt.publisher import publish_message
+from api.mqtt.publisher import publish_message
 
-from train.core.constants import (
+from api.core.constants import (
     DETECTION_LOG_COLUMNS,
     DETECTIONS_LOG_PREFIX,
     DETECTIONS_LOG_SUFFIX,
@@ -26,14 +26,14 @@ from train.core.constants import (
     FRAME_QUEUE_TIMEOUT_SECONDS,
     PROCESSOR_MQTT_CLIENT_ID,
 )
-from train.perception.postprocessing import convert_detections_to_json
+from api.perception.postprocessing import convert_detections_to_json
 
-from train.core.types import (
+from api.core.types import (
     FramePackage,
     ProjectData,
     SharedData,
 )
-from train.perception.yolo_inference import predict, draw_results
+from api.perception.yolo_inference import draw_results, predict
 
 logger = logging.getLogger(__name__)
 
@@ -151,15 +151,15 @@ def processor_process(
                     # Añade una fila por deteccion al log tabular del stream.
                     timestamp = time.time()
                     rows = []
-                    for detection in yolo_results:
+                    for InferenceDetection in yolo_results:
                         rows.append(
                             {
                                 "timestamp": timestamp,
                                 "frame_id": frame_id,
-                                "class": str(detection.class_id),
-                                "confidence": str(detection.confidence),
-                                "bbox": str(detection.bbox),
-                                "mask": "present" if detection.mask else "None",
+                                "class": str(InferenceDetection.class_id),
+                                "confidence": str(InferenceDetection.confidence),
+                                "bbox": str(InferenceDetection.bbox),
+                                "mask": "present" if InferenceDetection.mask else "None",
                             }
                         )
                     if rows:

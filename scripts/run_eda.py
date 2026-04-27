@@ -1,6 +1,6 @@
 
 import os
-from eda.core.logger import configure_logging
+from common.logger import configure_logging
 from eda.io.loaders import load_images, load_labels
 from eda.io.writers import save_results
 from eda.visualization.density_plot import plot_density_center

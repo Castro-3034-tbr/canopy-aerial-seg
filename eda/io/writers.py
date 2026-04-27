@@ -176,27 +176,14 @@ def save_results(
         else:
             file_obj.write("No se han obtenido áreas de etiquetas.\n")
 
-        if results.label_area_ratios:
+        if results.labels_areas:
             _write_summary_stats(
                 file_obj,
-                results.label_area_ratios,
-                "Ratio área etiqueta / área imagen",
+                results.label_areas,
+                "Áreas de etiquetas",
             )
         else:
-            file_obj.write(
-                "No se han obtenido ratios de área etiqueta/imagen.\n"
-            )
-
-        if results.label_area_ratios_per_image:
-            _write_summary_stats(
-                file_obj,
-                results.label_area_ratios_per_image,
-                "Ratio área total etiquetas / área imagen",
-            )
-        else:
-            file_obj.write(
-                "No se han obtenido ratios por imagen de área cubierta por etiquetas.\n"
-            )
+            file_obj.write("No se han obtenido áreas de etiquetas.\n")
 
         _write_centers_summary(file_obj, results)
 

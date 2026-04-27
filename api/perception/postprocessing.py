@@ -7,8 +7,10 @@ from typing import Any
 import cv2
 import numpy as np
 
-from train.core.constants import DEFAULT_MASK_THRESHOLD
-from train.core.types import Coordinates, Polygon, FrameMask, MaskMetric, Detection, Mask
+from api.core.constants import DEFAULT_MASK_THRESHOLD
+from common.types.model import InferenceDetection
+from common.types.geometry import Coordinates, Polygon, Mask
+from common.types.media import FrameMask,MaskMetric
 
 
 def calculate_centroid(polygon: Polygon) -> Coordinates:
@@ -134,7 +136,7 @@ def process_mask(masks: FrameMask, gsd: float) -> list[MaskMetric]:
     return mask_metrics
 
 
-def convert_detections_to_json(detections: list[Detection], frame_id: int | None) -> dict[str, Any]:
+def convert_detections_to_json(detections: list[InferenceDetection], frame_id: int | None) -> dict[str, Any]:
     """Convierte las detecciones a un formato JSON serializable."""
     if frame_id is not None:
         json_detections: dict[str, Any] = {"frame_id": frame_id}

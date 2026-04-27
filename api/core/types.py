@@ -14,8 +14,8 @@ from common.types.base import StrictModel
 from common.types.media import (
     Imagen,
     FramePackage,
-    InferenceDetection,
 )
+from common.types.model import InferenceDetection
 
 
 TcpPortValue: TypeAlias = Annotated[int, Field(ge=1, le=65535)]
@@ -50,7 +50,7 @@ class ApiSavePathConfig(StrictModel):
     Inference: Path
 
 
-class InferenceModelConfig(StrictModel):
+class ModelConfig(StrictModel):
     """Configuración validable del modelo YOLO para inferencia online."""
 
     Name: str = Field(min_length=1)
@@ -99,7 +99,7 @@ class AppConfig(StrictModel):
 
     API: ApiConfig
     SavePath: ApiSavePathConfig
-    Model: InferenceModelConfig
+    Model: ModelConfig
 
 
 class MQTTConfig(TypedDict):
@@ -287,7 +287,3 @@ class PahoMQTTClient(Protocol):
     def loop_stop(self) -> Any: ...
 
     def disconnect(self) -> Any: ...
-
-
-ApiAppConfig = AppConfig
-Detection = InferenceDetection

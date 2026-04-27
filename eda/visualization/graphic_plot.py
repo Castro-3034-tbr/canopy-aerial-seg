@@ -10,9 +10,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt
-
-from eda.core.types import MetricValues
 
 NumericSeries = Sequence[float | int]
 

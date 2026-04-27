@@ -9,23 +9,23 @@ import ultralytics
 
 from fastapi import HTTPException
 
-from train.core.constants import (
+from api.core.constants import (
     PROCESS_JOIN_TIMEOUT,
     STREAM_START_SUCCESS_MESSAGE,
     STREAM_STOP_SUCCESS_MESSAGE,
     STREAMS_STOP_SUCCESS_MESSAGE,
 )
 
-from train.core.data_init import init_project_data, init_shared_data
-from train.processes.processor_process import processor_process
-from train.processes.reader_process import reader_process
+from api.core.data_init import init_project_data, init_shared_data
+from api.processes.processor_process import processor_process
+from api.processes.reader_process import reader_process
 
-from train.core.types import (
+from api.core.types import (
     GlobalManager,
-    ModelConfigModel,
+    ModelConfig,
     MQTTConfig,
     RuntimeState,
-    SavePathConfigModel,
+    SavePathConfig,
     StopAllStreamsResponse,
     StreamHealth,
     StreamSession,
@@ -45,8 +45,8 @@ class StreamManager:
     def __init__(
         self,
         manager: GlobalManager,
-        model_config: ModelConfigModel,
-        save_path_config: SavePathConfigModel,
+        model_config: ModelConfig,
+        save_path_config: SavePathConfig,
         runtime_state: RuntimeState,
         yolo_model: ultralytics.YOLO,
     ) -> None:

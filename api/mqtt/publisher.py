@@ -8,7 +8,7 @@ from typing import Any
 
 import paho.mqtt.client as mqtt
 
-from train.core.types import PahoMQTTClient
+from api.core.types import PahoMQTTClient
 
 logger = logging.getLogger(__name__)
 

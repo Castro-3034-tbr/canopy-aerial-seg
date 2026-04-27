@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
 
-from train.core.constants import (
+from api.core.constants import (
     ANNOTATED_FILENAME_PREFIX,
     DEFAULT_CONFIDENCE_THRESHOLD,
     DEFAULT_IMAGE_DOWNLOAD_STEM,
@@ -19,15 +19,16 @@ from train.core.constants import (
     DOCS_PATH,
     HEALTH_OK_MESSAGE,
 )
-from train.core.types import (
+from api.core.types import (
     RtspURL,
-    ConfidenceThreshold,
     HealthResponse,
     StopAllStreamsResponse,
     StreamStartedResponse,
     StreamStoppedResponse,
 )
-from train.utils.file_utils import process_image, process_video
+from api.utils.file_utils import process_image, process_video
+
+from common.types.model import ConfidenceThreshold
 
 # Define las rutas para streaming y prediccion de archivos.
 router = APIRouter()

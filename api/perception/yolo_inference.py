@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import ultralytics
 
-from train.core.constants import (
+from api.core.constants import (
     CENTROID_COLOR,
     CENTROID_RADIUS,
     DEFAULT_MASK_THRESHOLD,
@@ -17,8 +17,12 @@ from train.core.constants import (
     MASK_OVERLAY_BETA,
     MASK_OVERLAY_GAMMA,
 )
-from train.core.types import (FrameArray, Detection, BoundingBox, Coordinates)
-from train.perception.postprocessing import calculate_centroid, extract_vertices
+from common.types.geometry import BoundingBox
+from common.types.model import InferenceDetection
+from api.perception.postprocessing import calculate_centroid, extract_vertices
+from common.types.geometry import Coordinates
+from common.types.media import FrameArray
+from common.types.model import InferenceDetection
 
 
 def initialize_model(model_path: str, device: str = "cpu") -> ultralytics.YOLO:
@@ -41,7 +45,7 @@ def predict(
     #Conversion de los rultados a un formato comun
     return extract_detections(results=results)
 
-def extract_detections(results: Any) -> list[Detection]:
+def extract_detections(results: Any) -> list[InferenceDetection]:
     """Adapta los resultados del modelo a un formato serializable."""
     # Si no hay resultados, devuelve una lista vacia compatible con JSON.
     if not results:
@@ -55,7 +59,7 @@ def extract_detections(results: Any) -> list[Detection]:
     masks = result_yolo.masks.data.cpu().numpy() if result_yolo.masks is not None else []
     frame_height, frame_width = result_yolo.orig_shape[:2]
 
-    detections: list[Detection] = []
+    detections: list[InferenceDetection] = []
     # Convierte cada deteccion a tipos simples para serializacion.
     for index, class_id in enumerate(classes):
         x1, y1, x2, y2 = boxes[index]
@@ -65,7 +69,7 @@ def extract_detections(results: Any) -> list[Detection]:
         y2_norm = float(y2 / frame_height)
         vertices = extract_vertices(mask=masks[index])
 
-        detection = Detection(
+        InferenceDetection = InferenceDetection(
             class_id=int(class_id),
             confidence=float(confidences[index]),
             bbox=BoundingBox(
@@ -78,24 +82,24 @@ def extract_detections(results: Any) -> list[Detection]:
             frame_mask=masks[index],
             centroid=calculate_centroid(polygon=vertices)
         )
-        detections.append(detection)
+        detections.append(InferenceDetection)
 
     return detections
 
-def draw_results(frame: FrameArray, results: list[Detection]) -> FrameArray:
+def draw_results(frame: FrameArray, results: list[InferenceDetection]) -> FrameArray:
     """Dibuja mascaras y centroides sobre el frame original."""
     # Obtencion del tamaño del frame para escalar las coordenadas normalizadas a pixeles.
     height, width = frame.shape[:2]
 
     # Iteraccion por cada deteccion
-    for detection in results:
+    for InferenceDetection in results:
         pt1 = (
-            int(detection.bbox.p1.x * width),
-            int(detection.bbox.p1.y * height),
+            int(InferenceDetection.bbox.p1.x * width),
+            int(InferenceDetection.bbox.p1.y * height),
         )
         pt2 = (
-            int(detection.bbox.p2.x * width),
-            int(detection.bbox.p2.y * height),
+            int(InferenceDetection.bbox.p2.x * width),
+            int(InferenceDetection.bbox.p2.y * height),
         )
 
         # Dibujo del bounding box
@@ -110,7 +114,7 @@ def draw_results(frame: FrameArray, results: list[Detection]) -> FrameArray:
         # Dibujo del centroide
         cv2.circle(
             frame,
-            (int(detection.centroid.x * width), int(detection.centroid.y * height)),
+            (int(InferenceDetection.centroid.x * width), int(InferenceDetection.centroid.y * height)),
             CENTROID_RADIUS,
             CENTROID_COLOR,
             -1,
@@ -118,7 +122,7 @@ def draw_results(frame: FrameArray, results: list[Detection]) -> FrameArray:
 
         # Dibujo de la mascara
         colored_mask = np.zeros_like(frame)
-        colored_mask[detection.frame_mask > DEFAULT_MASK_THRESHOLD] = MASK_COLOR
+        colored_mask[InferenceDetection.frame_mask > DEFAULT_MASK_THRESHOLD] = MASK_COLOR
         frame = np.asarray(
             cv2.addWeighted(
             frame,
@@ -131,7 +135,7 @@ def draw_results(frame: FrameArray, results: list[Detection]) -> FrameArray:
         )
 
         # Dibujo de la etiqueta de clase y confianza
-        label = f"{detection.class_id}: {detection.confidence:.2f}"
+        label = f"{InferenceDetection.class_id}: {InferenceDetection.confidence:.2f}"
         cv2.putText(
             frame,
             label,

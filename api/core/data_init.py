@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import cast
 
-from train.core.constants import DEFAULT_QUEUE_SIZE
-from train.core.types import (
+from api.core.constants import DEFAULT_QUEUE_SIZE
+from api.core.types import (
     GlobalManager,
     ProjectData,
     RuntimeState,
