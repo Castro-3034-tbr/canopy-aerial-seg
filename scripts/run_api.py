@@ -10,7 +10,7 @@ from api.core.dependencies import create_app
 from api.core.types import ApiConfig
 from api.core.config import load_api_config
 from common.logger import configure_logging
-from common.constants import DEFAULT_CONFIG_DIR
+from common.constants import CONFIG_DIR
 
 # Expone una app ligera; el runtime pesado se construye en startup.
 app = create_app()
@@ -32,7 +32,7 @@ def main() -> None:
     configure_logging()
 
     # Obtiene la configuracion de la API desde el archivo principal.
-    api_config = load_api_config(Path(DEFAULT_CONFIG_DIR) / "config_api.json").API
+    api_config = load_api_config(Path(CONFIG_DIR) / "config_api.json").API
     api_host = api_config.IP
     api_port = api_config.PORT
 

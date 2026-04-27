@@ -9,10 +9,10 @@ from ultralytics import YOLO
 from pathlib import Path
 
 from train.core.config import load_training_config
-from common.constants import DEFAULT_CONFIG_DIR, PROJECT_ROOT
+from common.constants import CONFIG_DIR, PROJECT_ROOT
 from common.logger import configure_logging
+from common.utils.filesystem import resolve_path
 from train.training.pipeline import YoloPipeline
-from train.utils.filesystem import resolve_path
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def main() -> int:
 
     # Configuracion de los elementos necesarios
     configure_logging()
-    config = load_training_config(path=Path(DEFAULT_CONFIG_DIR) / "config_train.json")
+    config = load_training_config(path=Path(CONFIG_DIR) / "config_train.json")
 
     # Resolucion de rutas
     data_path = resolve_path(value=config.pathData)

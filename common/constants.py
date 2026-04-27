@@ -11,8 +11,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # Configuracion de rutas y logging
 # ================================
 
-DEFAULT_CONFIG_DIR = PROJECT_ROOT / "config"
-DEFAULT_LOG_DIR = PROJECT_ROOT / "logs"
-DEFAULT_LOG_FILENAME = "tfm.log"
-DEFAULT_LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-DEFAULT_LOG_LEVEL = "INFO"
+CONFIG_DIR = PROJECT_ROOT / "config"
+LOG_DIR = PROJECT_ROOT / "logs"
+LOG_FILENAME = "tfm.log"
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+LOG_LEVEL = "INFO"
