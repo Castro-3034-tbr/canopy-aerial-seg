@@ -26,26 +26,19 @@ def yolo_predict(
         RuntimeError: Si falla la inferencia.
     """
 
-    # Creación de argumentos para la inferencia
-    predict_args: dict[str, str | float | int | bool] = {
-        "source": source,
-        "conf": config.conf_threshold,
-        "imgsz": config.img_size,
-        "device": config.device,
-        "save": config.save_results,
-        "save_txt": config.save_txt,
-        "save_conf": config.save_conf,
-        "name": str(Path(output_path) / "detect"),
-        "exist_ok": config.exist_ok,
-    }
-    # Cast to proper types to satisfy type checker
-    _: dict[str, str | float | int | bool] = {
-        k: v for k, v in predict_args.items()
-    }
-
     # Ejecución de la inferencia
     try:
-        results = model.predict(**predict_args)
+        results = model.predict(
+            source=source,
+            conf=config.conf_threshold,
+            imgsz=config.img_size,
+            device=config.device,
+            save=config.save_results,
+            save_txt=config.save_txt,
+            save_conf=config.save_conf,
+            name=str(Path(output_path) / "detect"),
+            exist_ok=config.exist_ok,
+        )
         return results
 
     except Exception as exc:
