@@ -1,0 +1,9 @@
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict
+
+
+class StrictModel(BaseModel):
+    """Modelo base de Pydantic que rechaza campos no declarados."""
+
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)

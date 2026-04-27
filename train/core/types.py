@@ -6,17 +6,11 @@ import os
 from pathlib import Path
 from typing import TypeAlias, TypedDict
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    field_validator,
-    model_validator,
-)
+from pydantic import Field, field_validator, model_validator
 from ultralytics import YOLO
 
+from common.types.base import StrictModel
 from train.utils.filesystem import resolve_path
-
 
 YoloTaskResult = object
 YoloModel: TypeAlias = YOLO
@@ -37,12 +31,6 @@ def _validate_workers_count(value: int, field_name: str) -> int:
     return value
 
 
-class StrictModel(BaseModel):
-    """Modelo base con validación estricta de campos."""
-
-    model_config = ConfigDict(extra="forbid")
-
-
 class TaskConfig(StrictModel):
     """Flags para activar las etapas del pipeline."""
 
@@ -51,8 +39,8 @@ class TaskConfig(StrictModel):
     predict: bool = False
 
 
-class ModelConfig(StrictModel):
-    """Configuración del modelo YOLO."""
+class TrainingModelConfig(StrictModel):
+    """Configuración del modelo YOLO para entrenamiento e inferencia offline."""
 
     path: str
 
@@ -66,13 +54,9 @@ class ModelConfig(StrictModel):
 
         model_path = resolve_path(value=value)
         if not model_path.exists():
-            raise ValueError(
-                f"La ruta del modelo no existe: {model_path}"
-            )
+            raise ValueError(f"La ruta del modelo no existe: {model_path}")
         if not model_path.is_file():
-            raise ValueError(
-                f"La ruta del modelo debe ser un archivo: {model_path}"
-            )
+            raise ValueError(f"La ruta del modelo debe ser un archivo: {model_path}")
 
         return str(model_path)
 
@@ -97,9 +81,7 @@ class TrainConfig(StrictModel):
         """Evita valores vacíos para el dispositivo."""
         value = value.strip()
         if not value:
-            raise ValueError(
-                "El dispositivo de entrenamiento no puede estar vacio."
-            )
+            raise ValueError("El dispositivo de entrenamiento no puede estar vacio.")
         return value
 
     @field_validator("workers")
@@ -123,9 +105,7 @@ class ValidationConfig(StrictModel):
         """Evita valores vacíos para el dispositivo."""
         value = value.strip()
         if not value:
-            raise ValueError(
-                "El dispositivo de validacion no puede estar vacio."
-            )
+            raise ValueError("El dispositivo de validacion no puede estar vacio.")
         return value
 
     @field_validator("workers")
@@ -155,9 +135,7 @@ class PredictConfig(StrictModel):
             return value
         value = value.strip()
         if not value:
-            raise ValueError(
-                "La ruta de entrada para prediccion no puede estar vacia."
-            )
+            raise ValueError("La ruta de entrada para prediccion no puede estar vacia.")
 
         source_path = resolve_path(value=value)
         if not source_path.exists():
@@ -173,18 +151,16 @@ class PredictConfig(StrictModel):
         """Evita valores vacíos para el dispositivo."""
         value = value.strip()
         if not value:
-            raise ValueError(
-                "El dispositivo de prediccion no puede estar vacio."
-            )
+            raise ValueError("El dispositivo de prediccion no puede estar vacio.")
         return value
 
 
-class PipelineConfig(StrictModel):
-    """Configuración global del pipeline."""
+class TrainPipelineConfig(StrictModel):
+    """Configuración global del pipeline offline."""
 
     pathData: str
     pathResult: str
-    model: ModelConfig
+    model: TrainingModelConfig
     task: TaskConfig = Field(default_factory=TaskConfig)
     train: TrainConfig = Field(default_factory=TrainConfig)
     val: ValidationConfig = Field(default_factory=ValidationConfig)
@@ -205,13 +181,9 @@ class PipelineConfig(StrictModel):
         """Valida que el dataset de entrada exista y sea un archivo."""
         data_path = resolve_path(value=value)
         if not data_path.exists():
-            raise ValueError(
-                f"La ruta de datos no existe: {data_path}"
-            )
+            raise ValueError(f"La ruta de datos no existe: {data_path}")
         if not data_path.is_file():
-            raise ValueError(
-                f"La ruta de datos debe ser un archivo: {data_path}"
-            )
+            raise ValueError(f"La ruta de datos debe ser un archivo: {data_path}")
         return str(data_path)
 
     @field_validator("pathResult")
@@ -221,8 +193,7 @@ class PipelineConfig(StrictModel):
         output_path = resolve_path(value=value)
         if output_path.exists() and not output_path.is_dir():
             raise ValueError(
-                "La ruta de salida debe ser un directorio: "
-                f"{output_path}"
+                "La ruta de salida debe ser un directorio: " f"{output_path}"
             )
 
         output_path.mkdir(parents=True, exist_ok=True)
@@ -230,12 +201,10 @@ class PipelineConfig(StrictModel):
         return str(output_path)
 
     @model_validator(mode="after")
-    def validate_task_dependencies(self) -> "PipelineConfig":
+    def validate_task_dependencies(self) -> "TrainPipelineConfig":
         """Comprueba coherencia mínima entre tareas y configuración."""
         if not any((self.task.train, self.task.val, self.task.predict)):
-            raise ValueError(
-                "Debe haber al menos una tarea activada en 'task'."
-            )
+            raise ValueError("Debe haber al menos una tarea activada en 'task'.")
 
         if self.task.predict and self.predict.source is None:
             raise ValueError(
@@ -260,3 +229,6 @@ class PipelineResults(TypedDict, total=False):
     train: YoloTaskResult
     val: YoloTaskResult
     predict: YoloTaskResult
+
+
+AppConfig = TrainPipelineConfig
