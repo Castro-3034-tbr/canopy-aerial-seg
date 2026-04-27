@@ -1,66 +1,26 @@
-"""Tipos compartidos del proyecto."""
+"""Tipos compartidos del dominio EDA."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TypeAlias
 
-import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import Field
 
-
-class StrictModel(BaseModel):
-    """Modelo base que fuerza validación estricta de campos."""
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class Coordinates(StrictModel):
-    """Coordenadas normalizadas de un punto en el rango [0, 1]."""
-
-    x: float = Field(ge=0.0, le=1.0)
-    y: float = Field(ge=0.0, le=1.0)
-
-
-class BoundingBox(StrictModel):
-    """Caja envolvente derivada de un polígono en coordenadas normalizadas."""
-
-    x_min: float = Field(ge=0.0, le=1.0)
-    y_min: float = Field(ge=0.0, le=1.0)
-    x_max: float = Field(ge=0.0, le=1.0)
-    y_max: float = Field(ge=0.0, le=1.0)
-    width: float = Field(ge=0.0)
-    height: float = Field(ge=0.0)
-
-    @field_validator("width", "height")
-    @classmethod
-    def validar_dimension(cls, value: float) -> float:
-        """Evita dimensiones negativas por redondeo."""
-        return max(0.0, value)
-
-
-Polygon: TypeAlias = list[Coordinates]
-MaskLabel: TypeAlias = tuple[int, Polygon]
-BboxLabel: TypeAlias = tuple[int, BoundingBox]
-
-ImageSize: TypeAlias = tuple[int, int]
-AspectRatioCounts: TypeAlias = dict[str, int]
-QuadrantCounts: TypeAlias = dict[str, int]
-LabelsPerImage: TypeAlias = list[int]
-MetricValues: TypeAlias = list[float]
-LabelsSizes: TypeAlias = list[float]
-LabelsCenters: TypeAlias = list[Coordinates]
+from common.types.base import StrictModel
+from common.types.geometry import (
+    Coordinates,
+    ImageSize,
+)
+from common.types.model import BboxLabel, MaskLabel
 
 
 class ImageData(StrictModel):
-    """Imagen con su ruta y array de píxeles."""
-
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    """Imagen con su ruta y metadatos básicos."""
 
     path: Path
-    width: int = Field(..., ge=1 , description="Ancho de la imagen en píxeles")
-    height: int = Field(ge=1, description="Alto de la imagen en píxeles")
-    channels: int = Field(ge=1, description="Número de canales de color")
+    width: int = Field(..., ge=1, description="Ancho de la imagen en píxeles")
+    height: int = Field(..., ge=1, description="Alto de la imagen en píxeles")
+    channels: int = Field(..., ge=1, description="Número de canales de color")
 
 
 class LabelData(StrictModel):
@@ -85,36 +45,30 @@ class LabelsLoaderResult(StrictModel):
     incorrect_labels: list[Path]
 
 
-def _default_horizontal_quadrants() -> QuadrantCounts:
-    return {"Izquierda": 0, "Centro": 0, "Derecha": 0}
-
-
-def _default_vertical_quadrants() -> QuadrantCounts:
-    return {"Arriba": 0, "Centro": 0, "Abajo": 0}
-
-
 class AnalysisResult(StrictModel):
     """Resultados agregados del análisis EDA."""
-
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     images: list[ImageData] = Field(default_factory=list)
     labels: list[LabelData] = Field(default_factory=list)
     incorrect_images: list[Path] = Field(default_factory=list)
     incorrect_labels: list[Path] = Field(default_factory=list)
 
-    image_types: AspectRatioCounts = Field(default_factory=dict)
+    image_types: dict[str, int] = Field(default_factory=dict)
     image_sizes: dict[ImageSize, int] = Field(default_factory=dict)
-    image_aspect_ratios: AspectRatioCounts = Field(default_factory=dict)
-    images_brightness: MetricValues = Field(default_factory=list)
-    images_contrast: MetricValues = Field(default_factory=list)
-    images_blur: MetricValues = Field(default_factory=list)
+    image_aspect_ratios: dict[str, int] = Field(default_factory=dict)
+    images_brightness: list[float] = Field(default_factory=list)
+    images_contrast: list[float] = Field(default_factory=list)
+    images_blur: list[float] = Field(default_factory=list)
 
-    num_labels_per_image: LabelsPerImage = Field(default_factory=list)
-    label_areas: LabelsSizes = Field(default_factory=list)
-    labels_areas: LabelsSizes = Field(default_factory=list)
-    label_aspect_ratios: AspectRatioCounts = Field(default_factory=dict)
-    labels_centers: LabelsCenters = Field(default_factory=list)
-    label_quadrants_x: QuadrantCounts = Field(default_factory=_default_horizontal_quadrants)
-    label_quadrants_y: QuadrantCounts = Field(default_factory=_default_vertical_quadrants)
-    labels_iou: MetricValues = Field(default_factory=list)
+    num_labels_per_image: list[int] = Field(default_factory=list)
+    label_areas: list[float] = Field(default_factory=list)
+    labels_areas: list[float] = Field(default_factory=list)
+    label_aspect_ratios: dict[str, int] = Field(default_factory=dict)
+    labels_centers: list[Coordinates] = Field(default_factory=list)
+    label_quadrants_x: dict[str, int] = Field(
+        default_factory=lambda: {"Izquierda": 0, "Centro": 0, "Derecha": 0}
+    )
+    label_quadrants_y: dict[str, int] = Field(
+        default_factory=lambda: {"Arriba": 0, "Centro": 0, "Abajo": 0}
+    )
+    labels_iou: list[float] = Field(default_factory=list)

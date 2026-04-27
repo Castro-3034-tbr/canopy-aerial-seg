@@ -1,5 +1,6 @@
-import numpy as np
 import cv2
+import numpy as np
+
 
 def color_to_gray_array(image_array: np.ndarray) -> np.ndarray:
     """Convierte una imagen RGB/RGBA/gris en array gris de numpy.

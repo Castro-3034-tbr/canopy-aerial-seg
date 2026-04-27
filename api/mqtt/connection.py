@@ -6,8 +6,8 @@ import logging
 
 import paho.mqtt.client as mqtt
 
-from src.core.constants import DEFAULT_MQTT_KEEPALIVE
-from src.core.types import PahoMQTTClient
+from api.core.constants import DEFAULT_MQTT_KEEPALIVE
+from api.core.types import PahoMQTTClient
 from typing import cast
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def connect_mqtt(
         # Configuramos el cliente MQTT y sus callbacks.
         client = mqtt.Client(client_id=client_id)
 
-        # Guardamos la configuracion en el objeto para que el publicador y los logs
+        # Guardamos la configuracion en user_data para que el publicador y los logs
         # puedan acceder a ella sin depender de variables externas.
         client.broker = broker
         client.port = port

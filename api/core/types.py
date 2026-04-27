@@ -1,4 +1,4 @@
-"""Tipos compartidos del proyecto."""
+"""Tipos propios de la API y compatibilidad con los tipos compartidos."""
 
 from __future__ import annotations
 
@@ -7,91 +7,20 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, Protocol, TypeAlias, runtime_checkable
 
 import ultralytics
-import numpy as np
-from numpy.typing import NDArray
-from pydantic import BaseModel, ConfigDict, Field, FilePath, field_validator
+from pydantic import Field, field_validator
 from typing_extensions import TypedDict
-from ultralytics.engine.model import Model as UltralyticsModelBase
+
+from common.types.base import StrictModel
+from common.types.media import (
+    Imagen,
+    FramePackage,
+)
+from common.types.model import InferenceDetection
 
 
-class StrictModel(BaseModel):
-    """Modelo base de Pydantic que rechaza campos no declarados."""
-
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
-
-
-class Coordinates(StrictModel):
-    """Coordenadas normalizadas de un punto en el rango [0, 1]."""
-
-    x: float = Field(ge=0.0, le=1.0)
-    y: float = Field(ge=0.0, le=1.0)
-
-
-Polygon: TypeAlias = list[Coordinates]
-Mask: TypeAlias = list[Coordinates]
-FrameArray: TypeAlias = NDArray[np.uint8]
-FrameMask: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
-UltralyticsModel: TypeAlias = UltralyticsModelBase
-OutputPathResult: TypeAlias = tuple[Path, str]
-
-ConfidenceThreshold: TypeAlias = Annotated[float, Field(ge=0.0, le=1.0)]
 TcpPortValue: TypeAlias = Annotated[int, Field(ge=1, le=65535)]
-BoundingBoxList: TypeAlias = list["BoundingBox"]
-CentroidList: TypeAlias = list[Coordinates]
 UploadKind: TypeAlias = Literal["image", "video"]
 StreamState: TypeAlias = Literal["running", "stopped", "stopping"]
-
-
-class BoundingBox(StrictModel):
-    """Caja envolvente derivada de un polígono en coordenadas normalizadas."""
-
-    p1: Coordinates
-    p2: Coordinates
-    width: float = Field(ge=0.0)
-    height: float = Field(ge=0.0)
-
-    @field_validator("width", "height")
-    @classmethod
-    def validar_dimension(cls, value: float) -> float:
-        """Evita dimensiones negativas por redondeo."""
-        return max(0.0, value)
-
-
-class Detection(StrictModel):
-    """Estructura de una detección serializable."""
-
-    class_id: int
-    confidence: float = Field(ge=0.0, le=1.0)
-    bbox: BoundingBox
-    mask: Mask
-    frame_mask: FrameMask
-    centroid: Coordinates
-
-
-class MaskMetric(StrictModel):
-    """Métricas resumidas de una máscara."""
-
-    mask_index: int
-    mask_area: int
-    frame_area: int
-    area_ratio: float
-
-
-class FramePackage(StrictModel):
-    """Frame compartido entre el lector y el procesador."""
-
-    img: FrameArray
-    frame_id: int
-    pts: int | None
-    width: int
-    height: int
-
-
-class OutputFile(StrictModel):
-    """Metadatos de un archivo de salida generado por la API."""
-
-    path: FilePath
-    media_type: str
 
 
 class ApiConfig(StrictModel):
@@ -114,18 +43,18 @@ class ApiConfig(StrictModel):
         return normalized
 
 
-class SavePathConfigModel(StrictModel):
-    """Rutas de salida configurables del proyecto."""
+class ApiSavePathConfig(StrictModel):
+    """Rutas de salida configurables del proyecto para la API."""
 
     Logs: Path
     Inference: Path
 
 
 class ModelConfig(StrictModel):
-    """Configuración validable del modelo YOLO."""
+    """Configuración validable del modelo YOLO para inferencia online."""
 
     Name: str = Field(min_length=1)
-    Path: FilePath
+    Path: Path
     Device: str = Field(min_length=1)
 
     @field_validator("Name", "Device")
@@ -144,9 +73,6 @@ class ModelConfig(StrictModel):
         if not str(value).strip():
             raise ValueError("La ruta del modelo no puede estar vacía.")
         return value
-
-
-ModelConfigModel: TypeAlias = ModelConfig
 
 
 class RtspURL(StrictModel):
@@ -168,11 +94,11 @@ class RtspURL(StrictModel):
         return normalized
 
 
-class AppConfigModel(StrictModel):
-    """Configuración raíz validable del proyecto."""
+class AppConfig(StrictModel):
+    """Configuración raíz validable de la API."""
 
     API: ApiConfig
-    SavePath: SavePathConfigModel
+    SavePath: ApiSavePathConfig
     Model: ModelConfig
 
 
@@ -317,20 +243,24 @@ class YoloModel(Protocol):
 
     def predict(
         self,
-        frame: FrameArray,
+        frame: Imagen,
         confidence_threshold: float = 0.0,
         debug: bool = False,
-    ) -> list[Detection]: ...
+    ) -> list[InferenceDetection]: ...
 
-    def extract_detections(self, results: Any) -> list[Detection]: ...
+    def extract_detections(self, results: Any) -> list[InferenceDetection]: ...
 
-    def draw_results(self, frame: FrameArray, results: list[Detection]) -> FrameArray: ...
+    def draw_results(
+        self,
+        frame: Imagen,
+        results: list[InferenceDetection],
+    ) -> Imagen: ...
 
 
 class AppRuntime(TypedDict):
     """Objetos compartidos durante la vida de la aplicación."""
 
-    config: AppConfigModel
+    config: AppConfig
     manager: "GlobalManager"
     runtime_state: "RuntimeState"
     yolo_model: "ultralytics.YOLO"

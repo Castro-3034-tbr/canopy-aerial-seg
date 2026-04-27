@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.core.types import TrainConfig, YoloModel, YoloTaskResult
+from train.core.types import TrainConfig, YoloModel, YoloTaskResult
 
 
 def yolo_train(

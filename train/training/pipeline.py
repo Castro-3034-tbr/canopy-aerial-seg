@@ -4,19 +4,19 @@ import logging
 import os
 from pathlib import Path
 
-from src.core.types import (
-    PipelineConfig,
+from train.core.types import (
     PipelineResults,
     PredictConfig,
     TaskConfig,
     TrainConfig,
+    TrainPipelineConfig,
     ValidationConfig,
     YoloModel,
 )
-from src.inference.predictor import yolo_predict
-from src.training.trainer import yolo_train
-from src.training.validator import yolo_validate
-from src.utils.filesystem import clean_cache
+from common.utils.filesystem import clean_cache
+from train.inference.predictor import yolo_predict
+from train.training.trainer import yolo_train
+from train.training.validator import yolo_validate
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +45,11 @@ class YoloPipeline:
         self.data_path = data_path
         self.output_path = output_path
 
-    def run(self, config: PipelineConfig) -> PipelineResults:
+    def run(self, config: TrainPipelineConfig) -> PipelineResults:
         """Ejecuta las etapas activadas en la configuración.
 
         Args:
-            config (PipelineConfig): Configuración global validada
+            config (TrainPipelineConfig): Configuración global validada
                 del pipeline.
 
         Returns:

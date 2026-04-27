@@ -8,14 +8,14 @@ from typing import AsyncIterator, cast
 
 from fastapi import FastAPI
 
-from src.api.routes import router
-from src.core.config import load_config
-from src.core.constants import APP_DESCRIPTION, APP_TITLE, APP_VERSION
-from src.core.data_init import init_runtime_state
-from src.core.types import AppRuntime, GlobalManager
-from src.perception.yolo_inference import initialize_model
-from src.processes.stream_manager import StreamManager
-from src.core.logger import configure_logging
+from api.routes.routes import router
+from api.core.config import load_api_config
+from api.core.constants import APP_DESCRIPTION, APP_TITLE, APP_VERSION
+from api.core.data_init import init_runtime_state
+from api.core.types import AppRuntime, GlobalManager
+from api.perception.yolo_inference import initialize_model
+from api.processes.stream_manager import StreamManager
+from common.logger import configure_logging
 
 
 def build_runtime() -> AppRuntime:
@@ -23,7 +23,7 @@ def build_runtime() -> AppRuntime:
     # Configura el logging antes de inicializar el resto del runtime.
     configure_logging()
     # Carga la configuracion persistida del proyecto.
-    config = load_config()
+    config = load_api_config()
     # Crea el gestor de objetos compartidos para los procesos hijos.
     manager = cast(GlobalManager, Manager())
     runtime_state = init_runtime_state(manager=manager)

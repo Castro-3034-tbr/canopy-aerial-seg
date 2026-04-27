@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 from fastapi import HTTPException
 
-from src.core.constants import (
+from api.core.constants import (
     DEFAULT_VIDEO_CODEC,
     DEFAULT_VIDEO_FPS,
     IMAGE_MEDIA_TYPE,
@@ -19,9 +19,9 @@ from src.core.constants import (
     TEMP_VIDEO_SUFFIX,
     VIDEO_MEDIA_TYPE,
 )
-from src.core.types import OutputPathResult
+from common.types.media import OutputPathResult
 
-from src.perception.yolo_inference import predict, draw_results
+from api.perception.yolo_inference import draw_results, predict
 
 
 def process_image(

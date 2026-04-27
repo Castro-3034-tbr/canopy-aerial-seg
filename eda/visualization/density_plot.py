@@ -8,13 +8,13 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from eda.core.types import LabelsCenters
+from common.types.geometry import Coordinates
 
 logger = logging.getLogger(__name__)
 
 
 def plot_density_center(
-    labels_centers: LabelsCenters,
+    labels_centers: list[Coordinates],
     output_path: str | PathLike[str],
 ) -> None:
     """Genera y guarda un gráfico de densidad de centros de etiquetas."""

@@ -8,12 +8,12 @@ import time
 
 import av
 
-from src.core.constants import (
+from api.core.constants import (
     FRAME_QUEUE_PUT_TIMEOUT_SECONDS,
     RECONNECT_DELAY_SECONDS,
     RTSP_OPTIONS,
 )
-from src.core.types import FramePackage, ProjectData, SharedData
+from api.core.types import FramePackage, ProjectData, SharedData
 
 logger = logging.getLogger(__name__)
 

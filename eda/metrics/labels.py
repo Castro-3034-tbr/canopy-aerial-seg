@@ -11,19 +11,15 @@ from eda.utils.geometry import(
     calculate_centroid_polygon,
     calculate_iou,
 )
-from eda.core.types import (
-    LabelData,
-    LabelsCenters,
-    LabelsPerImage,
-    LabelsSizes,
-    MetricValues,
-    QuadrantCounts,
+from eda.core.types import LabelData
+from common.types.geometry import (
+    Coordinates,
 )
 
 
-def compute_label_areas(labels: Sequence[LabelData]) -> LabelsSizes:
+def compute_label_areas(labels: Sequence[LabelData]) -> list[float]:
     """Calcula el área relativa de cada máscara en porcentaje."""
-    label_areas: LabelsSizes = []
+    label_areas: list[float] = []
 
     for label in labels:
         for _, polygon in label.masks:
@@ -32,10 +28,10 @@ def compute_label_areas(labels: Sequence[LabelData]) -> LabelsSizes:
 
     return label_areas
 
-def compute_labels_areas(labels_files: Sequence[LabelData]) -> LabelsSizes:
+def compute_labels_areas(labels_files: Sequence[LabelData]) -> list[float]:
     """Calcula el área que ocupa todas las mascaras en una imagen."""
 
-    labels_areas: LabelsSizes = []
+    labels_areas: list[float] = []
 
     for labels in labels_files:
         area_total = 0.0
@@ -65,9 +61,9 @@ def count_label_aspect_ratios(labels: Sequence[LabelData]) -> dict[str, int]:
     return dict(Counter(aspect_ratios))
 
 
-def compute_label_centers(labels: Sequence[LabelData]) -> LabelsCenters:
+def compute_label_centers(labels: Sequence[LabelData]) -> list[Coordinates]:
     """Calcula el centroide de cada máscara y lo asocia a su archivo."""
-    centers: LabelsCenters = []
+    centers: list[Coordinates] = []
 
     for label in labels:
         for _, polygon in label.masks:
@@ -76,9 +72,9 @@ def compute_label_centers(labels: Sequence[LabelData]) -> LabelsCenters:
     return centers
 
 
-def count_label_quadrants_x(labels_centers: LabelsCenters) -> QuadrantCounts:
+def count_label_quadrants_x(labels_centers: list[Coordinates]) -> dict[str, int]:
     """Cuenta centros de etiquetas por zona horizontal."""
-    quadrants: QuadrantCounts = {"Izquierda": 0, "Centro": 0, "Derecha": 0}
+    quadrants: dict[str, int] = {"Izquierda": 0, "Centro": 0, "Derecha": 0}
 
     for center in labels_centers:
         if center.x < 0.33:
@@ -91,9 +87,9 @@ def count_label_quadrants_x(labels_centers: LabelsCenters) -> QuadrantCounts:
     return quadrants
 
 
-def count_label_quadrants_y(labels_centers: LabelsCenters) -> QuadrantCounts:
+def count_label_quadrants_y(labels_centers: list[Coordinates]) -> dict[str, int]:
     """Cuenta centros de etiquetas por zona vertical."""
-    quadrants: QuadrantCounts = {"Arriba": 0, "Centro": 0, "Abajo": 0}
+    quadrants: dict[str, int] = {"Arriba": 0, "Centro": 0, "Abajo": 0}
 
     for center in labels_centers:
         if center.y < 0.33:
@@ -106,14 +102,14 @@ def count_label_quadrants_y(labels_centers: LabelsCenters) -> QuadrantCounts:
     return quadrants
 
 
-def count_labels_per_image(labels: Sequence[LabelData]) -> LabelsPerImage:
+def count_labels_per_image(labels: Sequence[LabelData]) -> list[int]:
     """Cuenta el número de etiquetas por archivo."""
     return [len(label.masks) for label in labels]
 
 
-def compute_labels_iou(labels: Sequence[LabelData]) -> MetricValues:
+def compute_labels_iou(labels: Sequence[LabelData]) -> list[float]:
     """Calcula IoU entre todas las parejas de etiquetas por archivo."""
-    iou_values: MetricValues = []
+    iou_values: list[float] = []
 
     for label in labels:
         bboxes = [bbox for _, bbox in label.bboxes]

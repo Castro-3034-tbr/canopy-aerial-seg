@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
-
+from pathlib import Path
 import uvicorn
 
-from src.core.config import load_config
-from src.core.dependencies import create_app
-from src.core.types import ApiConfig
+from api.core.dependencies import create_app
+from api.core.types import ApiConfig
+from api.core.config import load_api_config
+from common.logger import configure_logging
+from common.constants import CONFIG_DIR
 
 # Expone una app ligera; el runtime pesado se construye en startup.
 app = create_app()
@@ -25,15 +27,17 @@ def _is_reload_enabled(api_config: ApiConfig) -> bool:
 
 def main() -> None:
     """Inicia Uvicorn con la configuracion declarada en disco."""
+
+    # Configuramos el logger
+    configure_logging()
+
     # Obtiene la configuracion de la API desde el archivo principal.
-    api_config = load_config().API
+    api_config = load_api_config(Path(CONFIG_DIR) / "config_api.json").API
     api_host = api_config.IP
     api_port = api_config.PORT
 
     if not api_host or not api_port:
-        raise ValueError(
-            "IP o puerto de la API no especificados en la configuracion."
-        )
+        raise ValueError("IP o puerto de la API no especificados en la configuracion.")
 
     api_reload = _is_reload_enabled(api_config)
 
