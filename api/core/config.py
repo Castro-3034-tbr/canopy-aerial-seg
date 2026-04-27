@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from common.loader_config import load_json
-from core.types import AppConfig
+from api.core.types import AppConfig
 
 
 def load_api_config(path: str | Path) -> AppConfig:
@@ -22,5 +22,5 @@ def load_api_config(path: str | Path) -> AppConfig:
         return AppConfig.model_validate(data)
     except ValidationError as exc:
         raise ValueError(
-            f"Error de validacion en training config: {exc}"
+            f"Error de validacion en API config: {exc}"
         ) from exc
