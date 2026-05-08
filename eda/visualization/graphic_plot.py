@@ -141,7 +141,12 @@ def plot_count_bars(
     # Ajustamos la altura de la figura según el número de categorías
     fig_height = max(5, 0.5 * len(labels))
     fig, ax = plt.subplots(figsize=(10, fig_height))
-    ax.barh(labels, values, color="#4c72b0", edgecolor="black")
+
+    # Usamos índices numéricos explícitamente para evitar conversión automática
+    y_positions = np.arange(len(labels))
+    ax.barh(y_positions, values, color="#4c72b0", edgecolor="black")
+    ax.set_yticks(y_positions)
+    ax.set_yticklabels(labels)
     ax.invert_yaxis()
     ax.set_title(title)
     ax.set_xlabel(x_label)
