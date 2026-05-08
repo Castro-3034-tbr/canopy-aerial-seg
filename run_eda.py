@@ -184,7 +184,7 @@ def _generate_plots(results: AnalysisResult, dir: Path) -> None:
 def main() -> None:
     """Punto de entrada principal del programa."""
     # Definicion de rutas de datos y resultados
-    DATASET_PATH = Path("./data/train")
+    DATASET_PATH = Path("/media/castro/Castro/Fotogrametrias/Moeche")
     RESULTS_DIR = Path("./output/eda")
     RESULTS_FILE = RESULTS_DIR / "eda_results.txt"
     PLOTS_DIR = RESULTS_DIR / "plots"
