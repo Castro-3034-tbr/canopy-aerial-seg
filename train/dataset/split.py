@@ -151,3 +151,14 @@ def split_dataset(
 
     except Exception as exc:
         raise RuntimeError(f"Error durante la division del dataset: {exc}") from exc
+
+
+if __name__ == "__main__":
+    # Ejemplo de uso
+    split_dataset(
+        dataset_path="/media/castro/Castro/Fotogrametrias/Moeche",
+        output_path="./data",
+        train_ratio=0.7,
+        val_ratio=0.2,
+        test_ratio=0.1,
+    )
