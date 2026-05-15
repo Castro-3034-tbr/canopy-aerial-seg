@@ -1,46 +1,40 @@
-api/__pycache__/
-.trunk/
-core/__pycache__/
-config/__pycache__/
-data/__pycache__/
-logs/
-models/
-utils/__pycache__/
-tests/**
+# ============================================================================
+# Python cache and bytecode
+# ============================================================================
 __pycache__/
-data/
-dataset/**
-!dataset/.gitkeep
-output/**
-!output/.gitkeep
-logs/
-runs/
-config/__pycache__/
-models/
-utils/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# ============================================================================
+# Virtual Environment
+# ============================================================================
+.venv/
+
+# ============================================================================
+# IDE and Editor
+# ============================================================================
+.vscode/
+.idea/
 .trunk/
+
+# ============================================================================
+# Data (except config file)
+# ============================================================================
 data/**
 !data/data.yaml
-src/__pycache__/
-src/core/__pycache__/
-src/training/__pycache__/
-src/inference/__pycache__/
-src/utils/__pycache__/
-src/data/__pycache__/
-dataPruebas/**
-!dataPruebas/.gitkeep
-Variables_buscar.md
-.trunk
-output/**
-!output/.gitkeep
-data/**
-!data/data.yaml
-api/**
-models/**
-__pycache__/**
-logs/**
-eda/core/__pycache__/
-eda/visualization/__pycache__/
-eda/io/__pycache__/
-eda/metrics/__pycache__/
-eda/utils/__pycache__/
+
+# ============================================================================
+# Models and Training artifacts
+# ============================================================================
+models/
+results/
+runs/
+*.pt
+*.pth
+
+# ============================================================================
+# Logs and outputs
+# ============================================================================
+logs/
+output/
