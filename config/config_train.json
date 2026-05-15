@@ -7,28 +7,31 @@
     "predict": true
   },
   "model": {
-    "path": "./models/yolo26s-seg.pt"
+    "path": "./models/best.pt"
   },
   "train": {
-    "augmentation": true,
-    "epochs": 2,
-    "batch_size": 2,
-    "img_size": 640,
-    "device": "cpu",
+    "augmentation": false,
+    "epochs": 200,
+    "batch_size": 4,
+    "img_size": 720,
+    "device": "cuda",
     "seed": 42,
-    "patience": 10,
+    "patience": 100,
     "workers": 4,
     "mosaic": true
   },
   "val": {
-    "batch_size": 2,
-    "img_size": 640,
-    "device": "cpu",
+    "batch_size": 4,
+    "img_size": 720,
+    "device": "cuda",
     "workers": 4
   },
   "predict": {
     "source": "./data/test/images",
-    "img_size": 640,
-    "device": "cpu"
+    "img_size": 720,
+    "device": "cuda",
+    "save_results": true,
+    "save_txt": true,
+    "save_conf": true
   }
 }
