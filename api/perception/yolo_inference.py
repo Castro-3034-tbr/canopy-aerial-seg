@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import logging
 import cv2
 import numpy as np
 import ultralytics
@@ -138,24 +139,57 @@ def draw_results(frame: Imagen, results: list[InferenceDetection]) -> Imagen:
         Imagen: Imagen con overlays aplicados (modificación in-place del frame).
     """
 
+    logger = logging.getLogger(__name__)
+
+    # Asegura tipo y canales compatibles con OpenCV
+    if frame.dtype != np.uint8:
+        try:
+            frame = frame.astype(np.uint8)
+        except Exception:
+            logger.exception("No se pudo convertir el frame a uint8; se retorna sin modificar")
+            return frame
+
+    if frame.ndim == 2:
+        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+    elif frame.ndim == 3 and frame.shape[2] < 3:
+        # Extiende canales menores a 3 duplicando el último canal
+        channels = [frame[..., i] if i < frame.shape[2] else frame[..., -1] for i in range(3)]
+        frame = np.stack(channels, axis=-1)
+
     height, width = frame.shape[:2]
 
-    # Máscara acumulada (optimización: una sola por frame)
-    combined_mask = np.zeros_like(frame)
+    # Máscara acumulada (optimización: una sola por frame), uint8
+    combined_mask = np.zeros_like(frame, dtype=np.uint8)
+
+    # Normaliza y valida constantes visuales
+    try:
+        centroid_color = tuple(int(c) for c in CENTROID_COLOR)
+        if len(centroid_color) != 3:
+            raise ValueError
+    except Exception:
+        logger.warning("CENTROID_COLOR inválido; usando (0,0,255)")
+        centroid_color = (0, 0, 255)
+
+    try:
+        mask_color = tuple(int(c) for c in MASK_COLOR)
+        if len(mask_color) != 3:
+            raise ValueError
+    except Exception:
+        logger.warning("MASK_COLOR inválido; usando (203,192,255)")
+        mask_color = (203, 192, 255)
+
+    try:
+        centroid_radius = int(max(0, CENTROID_RADIUS))
+    except Exception:
+        centroid_radius = 5
 
     for detection in results:
         # Centroide
         if detection.centroid is not None:
-            cx = int(np.clip(detection.centroid.x * width, 0, width - 1))
-            cy = int(np.clip(detection.centroid.y * height, 0, height - 1))
-
-            cv2.circle(
-                frame,
-                (cx, cy),
-                CENTROID_RADIUS,
-                CENTROID_COLOR,
-                -1,
-            )
+            # Normaliza centroides a rango válido
+            cx = int(np.clip(float(detection.centroid.x) * width, 0, width - 1))
+            cy = int(np.clip(float(detection.centroid.y) * height, 0, height - 1))
+            cv2.circle(frame, (cx, cy), centroid_radius, centroid_color, cv2.FILLED)
 
         # Máscara
         vertices = detection.mask
@@ -171,17 +205,25 @@ def draw_results(frame: Imagen, results: list[InferenceDetection]) -> Imagen:
                 ],
                 dtype=np.int32,
             )
+        else:
+            return frame
 
-            cv2.fillPoly(combined_mask, [pts], MASK_COLOR)
+        try:
+            cv2.fillPoly(combined_mask, [pts], mask_color)
+        except Exception:
+            logger.exception("Error al dibujar la máscara; se omite esta detección")
 
     # Aplica la máscara combinada con transparencia sobre el frame original.
-    cv2.addWeighted(
-        frame,
-        MASK_OVERLAY_BETA,
-        combined_mask,
-        MASK_OVERLAY_ALPHA,
-        MASK_OVERLAY_GAMMA,
-        dst=frame,  # <-- clave: in-place
-    )
+    try:
+        cv2.addWeighted(
+            frame,
+            MASK_OVERLAY_BETA,
+            combined_mask,
+            MASK_OVERLAY_ALPHA,
+            MASK_OVERLAY_GAMMA,
+            dst=frame,  # <-- clave: in-place
+        )
+    except Exception:
+        logger.exception("Error aplicando overlay de máscara; se devuelve el frame sin overlay")
 
     return frame

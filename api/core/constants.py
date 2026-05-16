@@ -12,32 +12,24 @@ DOCS_PATH = "/docs"                               # Ruta de la documentacion int
 
 
 # Configuracion de API, colas y control de procesos.
-DEFAULT_QUEUE_SIZE = 30                           # Tamano maximo de la cola compartida de frames.
+DEFAULT_QUEUE_SIZE = 3000                         # Tamano maximo de la cola compartida de frames.
 PROCESS_JOIN_TIMEOUT = 5.0                        # Tiempo maximo de espera al detener procesos.
 FRAME_QUEUE_TIMEOUT_SECONDS = 1                   # Tiempo maximo de espera al leer un frame de la cola.
-FRAME_QUEUE_PUT_TIMEOUT_SECONDS = 1               # Tiempo maximo de espera al insertar un frame en la cola.
+FRAME_QUEUE_PUT_TIMEOUT_SECONDS = 0.02            # Tiempo maximo de espera al insertar un frame en la cola.
 RECONNECT_DELAY_SECONDS = 2                       # Pausa antes de reintentar la conexion RTSP.
 
 
 # Configuracion del modelo de inferencia.
 DEFAULT_CONFIDENCE_THRESHOLD = 0.60               # Umbral de confianza por defecto para filtrar detecciones.
-DEFAULT_MASK_THRESHOLD = 0.5                      # Umbral usado para interpretar las mascaras.
 
 # Configuracion MQTT.
 DEFAULT_MQTT_TOPIC = "detecciones"                # Topic por defecto para publicar resultados.
-DEFAULT_MQTT_KEEPALIVE = 60                       # Intervalo de keepalive del cliente MQTT.
-PROCESSOR_MQTT_CLIENT_ID = "processor_process"    # Identificador MQTT del proceso de inferencia
 
 # Configuracion de archivos temporales y descargas.
 DEFAULT_IMAGE_DOWNLOAD_STEM = "image"             # Nombre base por defecto para descargas de imagen.
-DEFAULT_VIDEO_DOWNLOAD_STEM = "video"             # Nombre base por defecto para descargas de video.
 ANNOTATED_FILENAME_PREFIX = "annotated_"          # Prefijo aplicado a salidas anotadas.
 TEMP_IMAGE_SUFFIX = ".jpg"                        # Extension usada para imagenes temporales.
-TEMP_VIDEO_SUFFIX = ".mp4"                        # Extension usada para videos temporales.
 IMAGE_MEDIA_TYPE = "image/jpeg"                   # Tipo MIME de las respuestas de imagen.
-VIDEO_MEDIA_TYPE = "video/mp4"                    # Tipo MIME de las respuestas de video.
-DEFAULT_VIDEO_FPS = 25.0                          # FPS por defecto al reconstruir videos.
-DEFAULT_VIDEO_CODEC = "mp4v"                      # Codec por defecto del video de salida.
 
 
 # Configuracion de persistencia de resultados.
@@ -48,10 +40,7 @@ DETECTIONS_LOG_SUFFIX = ".csv"                    # Extension de los logs tabula
 DETECTION_LOG_COLUMNS = [
     "timestamp",
     "frame_id",
-    "class",
-    "confidence",
-    "bbox",
-    "mask",
+    "area_m2",
 ]                                               # Columnas del CSV de detecciones.
 
 
@@ -64,7 +53,7 @@ RTSP_OPTIONS = {
 
 
 # Configuracion de anotacion visual.
-MASK_COLOR = (0, 255, 0)                        # Color BGR de las mascaras dibujadas.
+MASK_COLOR = (203, 192, 255)                     # Color BGR de las mascaras dibujadas (rosa).
 CENTROID_COLOR = (0, 0, 255)                    # Color BGR del centroide.
 CENTROID_RADIUS = 5                             # Radio del punto dibujado para el centroide.
 MASK_OVERLAY_ALPHA = 0.5                        # Peso visual aplicado a la mascara superpuesta.

@@ -30,12 +30,8 @@ from api.core.types import (
     ModelConfig,
     MQTTConfig,
     RuntimeState,
-    ApiSavePathConfig,
-    StopAllStreamsResponse,
-    StreamHealth,
+    SavePathConfig,
     StreamSession,
-    StreamStartedResponse,
-    StreamStoppedResponse,
 )
 from common.types.model import YoloModel
 
@@ -54,7 +50,7 @@ class StreamManager:
         self,
         manager: GlobalManager,
         model_config: ModelConfig,
-        save_path_config: ApiSavePathConfig,
+        save_path_config: SavePathConfig,
         runtime_state: RuntimeState,
         yolo_model: YoloModel,
     ) -> None:
@@ -63,7 +59,7 @@ class StreamManager:
         Args:
             manager (GlobalManager): Instancia para crear estructuras compartidas.
             model_config (ModelConfig): Configuración del modelo (ruta, dispositivo, etc.).
-            save_path_config (ApiSavePathConfig): Rutas para guardar logs e inferencias.
+            save_path_config (SavePathConfig): Rutas para guardar logs e inferencias.
             runtime_state (RuntimeState): Estado de ejecución compartido de la aplicación.
             yolo_model (YoloModel): Instancia del modelo YOLO para pasar a los procesos.
         """
@@ -85,7 +81,7 @@ class StreamManager:
         mqtt_config: MQTTConfig,
         overlap: tuple[float, float],
         gsd: float,
-    ) -> StreamStartedResponse:
+    ) -> dict[str, Any]:
         """Arranca los procesos para una nueva sesión de stream.
 
         Args:
@@ -99,7 +95,7 @@ class StreamManager:
             gsd (float): Ground Sample Distance en metros/píxel.
 
         Returns:
-            StreamStartedResponse: Detalles de la sesión arrancada.
+            dict[str, Any]: Detalles de la sesión arrancada.
 
         Raises:
             HTTPException: con código 500 si falla el arranque de procesos o si
@@ -110,15 +106,15 @@ class StreamManager:
         shared_data = init_shared_data(manager=self.manager)
         project_data = init_project_data(
             manager=self.manager,
-            yolo_path=str(self.model_config.Path),
-            yolo_device=self.model_config.Device,
-            save_path_logs=str(self.save_path_config.Logs),
-            save_path_inference=str(self.save_path_config.Inference),
+            yolo_path=str(self.model_config.path),
+            yolo_device=self.model_config.device,
+            save_path_logs=str(self.save_path_config.logs),
+            save_path_inference=str(self.save_path_config.inference),
         )
 
         # Inicialización de los flags de ejecución para los procesos de lectura e inferencia, y asignación del session_id a la sesión.
-        project_data.reader_process_running.set()
-        project_data.processor_process_running.set()
+        project_data.reader_running.set()
+        project_data.processor_running.set()
         project_data.session_id = session_id
 
         # Construccion del proceso de lectura
@@ -154,8 +150,8 @@ class StreamManager:
             processor.start()
         except Exception as exc:
             # Si ocurre cualquier excepción durante el arranque de los procesos, se asegura que ambos procesos se detengan y se lanza una HTTPException con el error.
-            project_data.reader_process_running.clear()
-            project_data.processor_process_running.clear()
+            project_data.reader_running.clear()
+            project_data.processor_running.clear()
             logger.exception(
                 "No se pudieron iniciar los procesos del session_id=%s rtsp_url=%s",
                 session_id,
@@ -168,8 +164,8 @@ class StreamManager:
 
         if not reader.is_alive() or not processor.is_alive():
             # Si alguno de los procesos no quedó activo tras el arranque, se asegura que ambos procesos se detengan y se lanza una HTTPException indicando el error.
-            project_data.reader_process_running.clear()
-            project_data.processor_process_running.clear()
+            project_data.reader_running.clear()
+            project_data.processor_running.clear()
             raise HTTPException(
                 status_code=500,
                 detail="Los procesos del stream no quedaron activos tras el arranque.",
@@ -200,7 +196,7 @@ class StreamManager:
         self,
         session_id: str | None = None,
         timeout: float = PROCESS_JOIN_TIMEOUT,
-    ) -> StreamStoppedResponse | StopAllStreamsResponse:
+    ) -> dict[str, Any]:
         """Parada de los procesos de lectura e inferencia para un stream específico o para todos los streams activos.
 
         Args:
@@ -211,7 +207,7 @@ class StreamManager:
             HTTPException: Si no se puede detener el stream.
 
         Returns:
-            dict: Información sobre el stream detenido.
+            dict[str, Any]: Información sobre el stream detenido.
         """
 
         # Si no se proporciona un session_id, se detienen todos los streams activos
@@ -256,14 +252,14 @@ class StreamManager:
         }
 
         for session_id, session in self.sessions.items():
-            stream_info = StreamHealth(
-                session_id=session_id,
-                state=session.state,
-                rtsp_url=session.rtsp_url,
-                reader_alive=bool(session.reader_process.is_alive()),
-                processor_alive=bool(session.processor_process.is_alive()),
-                mqtt=session.mqtt,
-            )
+            stream_info = {
+                "session_id": session_id,
+                "state": session.state,
+                "rtsp_url": session.rtsp_url,
+                "reader_alive": bool(session.reader_process.is_alive()),
+                "processor_alive": bool(session.processor_process.is_alive()),
+                "mqtt": session.mqtt,
+            }
             info_streams["streams"].append(stream_info)
 
         return info_streams
@@ -272,7 +268,7 @@ class StreamManager:
         self,
         session_id: str,
         timeout: float,
-    ) -> StreamStoppedResponse:
+    ) -> dict[str, Any]:
         """Parada de los procesos de lectura e inferencia para un stream especifico,
         incluyendo la señalización a los procesos para que se detengan, la espera de su finalización con un timeout,
         y la eliminación de la sesión del stream.
@@ -282,14 +278,14 @@ class StreamManager:
             timeout (float): Tiempo máximo de espera para la finalización de los procesos
 
         Returns:
-            dict: Información sobre el stream detenido
+            dict[str, Any]: Información sobre el stream detenido
         """
 
         # Obtencion de la session del stream
         session = self.sessions[session_id]
         session.state = "stopping"
-        session.project_data.reader_process_running.clear()
-        session.project_data.processor_process_running.clear()
+        session.project_data.reader_running.clear()
+        session.project_data.processor_running.clear()
 
         # Espera para la finalizacion de los procesos
         for process in (

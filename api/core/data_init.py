@@ -58,8 +58,8 @@ def init_project_data(
 
     # Inicializa las señales de control para los procesos de lectura y
     # procesamiento mediante eventos compartidos.
-    project_data.reader_process_running = manager.Event()
-    project_data.processor_process_running = manager.Event()
+    project_data.reader_running = manager.Event()
+    project_data.processor_running = manager.Event()
     project_data.save_path_logs = save_path_logs
     project_data.save_path_inference = save_path_inference
     project_data.yolo_path = yolo_path

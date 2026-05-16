@@ -34,13 +34,13 @@ def reader_process(
 
     Args:
         shared_data (SharedData): Estructuras compartidas entre procesos (incluye `frame_queue`).
-        project_data (ProjectData): Datos y flags específicos de la sesión (ej. `reader_process_running`).
+        project_data (ProjectData): Datos y flags específicos de la sesión (ej. `reader_running`).
         session_id (str): Identificador de la sesión.
         rtsp_url (str): URL de la fuente RTSP.
 
     Returns:
         None: Esta función se ejecuta en un proceso separado y finaliza cuando
-            `project_data.reader_process_running` se limpia.
+            `project_data.reader_running` se limpia.
 
     Notes:
         - Los errores de conexión o lectura se registran y el proceso reintenta
@@ -53,7 +53,7 @@ def reader_process(
     frame_counter = 0
 
     # Bucle principal de lectura de frames
-    while project_data.reader_process_running.is_set():
+    while project_data.reader_running.is_set():
         container = None
         try:
             # Creacion del contenedor de video utilizando PyAV para conectarse a la fuente RTSP
@@ -77,7 +77,7 @@ def reader_process(
             # Lectura de frames del video y colocación en la cola compartida
             for frame in container.decode(stream):
                 # Verificación de la señal de parada del proceso de lectura antes de colocar el frame en la cola
-                if not project_data.reader_process_running.is_set():
+                if not project_data.reader_running.is_set():
                     break
 
                 # Guardado del frame y su informacion en la cola
@@ -121,7 +121,7 @@ def reader_process(
                 frame_counter += 1
 
             # Si el bucle de lectura termina de forma natural, se espera un tiempo y se intenta reconectar si el proceso de lectura sigue activo
-            if project_data.reader_process_running.is_set():
+            if project_data.reader_running.is_set():
                 logger.info(
                     "Stream RTSP finalizado; se reintentara la conexion "
                     "session_id=%s rtsp_url=%s",

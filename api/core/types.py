@@ -1,221 +1,218 @@
-"""Tipos propios de la API y compatibilidad con los tipos compartidos."""
+"""
+Tipos y contratos de la API.
+
+Estructura:
+- Tipos base y aliases
+- Configuración (Pydantic)
+- Estado de ejecución
+- Protocolos (IPC / multiprocessing)
+- Runtime global
+"""
 
 from __future__ import annotations
 
 from multiprocessing import Process
 from pathlib import Path
-from typing import Annotated, Any, Literal, Protocol, TypeAlias, runtime_checkable
+from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
 
-import ultralytics
 from pydantic import Field, field_validator
 from typing_extensions import TypedDict
 
 from common.types.base import StrictModel
-from common.types.media import FramePackage, Imagen
-from common.types.model import InferenceDetection
+from common.types.media import FramePackage
+from common.types.model import YoloModel
 
 
-TcpPortValue: TypeAlias = Annotated[int, Field(ge=1, le=65535)]
-UploadKind: TypeAlias = Literal["image", "video"]
+# ==========================================================
+# TYPE ALIASES
+# ==========================================================
+
 StreamState: TypeAlias = Literal["running", "stopped", "stopping"]
+IPv4: TypeAlias = str
 
+
+# ==========================================================
+# CONFIGURACIÓN (Pydantic)
+# ==========================================================
 
 class ApiConfig(StrictModel):
-    """Configuración validable del servidor HTTP."""
+    """
+    Configuración del servidor HTTP.
 
-    IP: str = Field(min_length=1)
-    PORT: int = Field(ge=1, le=65535)
+    Attributes:
+        ip: Dirección IP o 'localhost'
+        port: Puerto TCP válido
+    """
 
-    @field_validator("IP")
+    ip: IPv4 = Field(min_length=1)
+    port: int = Field(ge=1, le=65535)
+
+    @field_validator("ip")
     @classmethod
     def validate_ip(cls, value: str) -> str:
-        """Evita valores vacíos para la IP de la API."""
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("La IP de la API no puede estar vacía.")
-        if normalized.lower() != "localhost" and normalized.count(".") != 3:
-            raise ValueError(
-                "La IP de la API debe ser 'localhost' o una dirección IPv4."
-            )
-        return normalized
+        """
+        Valida formato básico de IP o localhost.
+
+        Nota:
+            No realiza validación completa RFC.
+        """
+        v = value.strip()
+
+        if not v:
+            raise ValueError("La IP no puede estar vacía.")
+
+        if v.lower() != "localhost" and v.count(".") != 3:
+            raise ValueError("Debe ser 'localhost' o una IPv4 válida.")
+
+        return v
 
 
-class ApiSavePathConfig(StrictModel):
-    """Rutas de salida configurables del proyecto para la API."""
+class SavePathConfig(StrictModel):
+    """
+    Rutas de persistencia del sistema.
+    """
 
-    Logs: Path
-    Inference: Path
+    logs: Path
+    inference: Path
 
 
 class ModelConfig(StrictModel):
-    """Configuración validable del modelo YOLO para inferencia online."""
+    """
+    Configuración del modelo de inferencia.
 
-    Name: str = Field(min_length=1)
-    Path: Path
-    Device: str = Field(min_length=1)
+    Attributes:
+        name: Identificador lógico del modelo
+        path: Ruta al modelo
+        device: Dispositivo (cpu, cuda, etc.)
+    """
 
-    @field_validator("Name", "Device")
+    name: str = Field(min_length=1)
+    path: Path
+    device: str = Field(min_length=1)
+
+    @field_validator("name", "device")
     @classmethod
-    def validate_model_field(cls, value: str) -> str:
-        """Evita campos vacíos en la configuración del modelo."""
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("Los campos del modelo no pueden estar vacíos.")
-        return normalized
+    def validate_non_empty(cls, value: str) -> str:
+        v = value.strip()
+        if not v:
+            raise ValueError("Campo vacío no permitido.")
+        return v
 
-    @field_validator("Path")
+    @field_validator("path")
     @classmethod
-    def validate_model_path(cls, value: Path) -> Path:
-        """Asegura que la ruta del modelo exista y no sea vacía."""
+    def validate_path(cls, value: Path) -> Path:
         if not str(value).strip():
-            raise ValueError("La ruta del modelo no puede estar vacía.")
+            raise ValueError("Ruta inválida.")
         return value
 
 
-class RtspURL(StrictModel):
-    """Representación validable de una URL RTSP."""
+class MQTTConfig(StrictModel):
+    """
+    Configuración de conexión MQTT.
+    """
 
-    url: str
-
-    @field_validator("url")
-    @classmethod
-    def validate_rtsp_url(cls, value: str) -> str:
-        """Valida que la URL tenga formato RTSP."""
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("La URL RTSP no puede estar vacía.")
-        if not normalized.lower().startswith("rtsp://"):
-            raise ValueError("La URL debe comenzar con 'rtsp://'.")
-        if normalized.count(":") < 2:
-            raise ValueError("La URL RTSP debe contener IP y puerto.")
-        return normalized
+    client_id: str = Field(min_length=1)
+    host: str
+    port: int = Field(ge=1, le=65535)
+    topic: str = Field(min_length=1)
+    keepalive: int = Field(default=60, ge=1, le=3600)
 
 
 class AppConfig(StrictModel):
-    """Configuración raíz validable de la API."""
+    """
+    Configuración global de la aplicación.
+    """
 
-    API: ApiConfig
-    SavePath: ApiSavePathConfig
-    Model: ModelConfig
-
-
-class MQTTConfig(TypedDict):
-    """Configuración MQTT asociada a una sesión."""
-
-    broker: str
-    port: int
-    topic: str
+    api: ApiConfig
+    save_path: SavePathConfig
+    model: ModelConfig
 
 
-class StreamSession(TypedDict):
-    """Estado interno asociado a un stream activo."""
+# ==========================================================
+# ESTADO DE EJECUCIÓN
+# ==========================================================
 
-    stream_id: str
+class StreamSession(StrictModel):
+    """
+    Estado asociado a un stream activo.
+
+    Nota:
+        Contiene referencias a procesos y datos compartidos.
+    """
+
     state: StreamState
     rtsp_url: str
+
     shared_data: "SharedData"
     project_data: "ProjectData"
+
     reader_process: Process
     processor_process: Process
+
     mqtt: MQTTConfig
 
 
-class StreamStartedResponse(TypedDict):
-    """Respuesta del endpoint de arranque de stream."""
-
-    msg: str
-    stream_id: str
-    state: StreamState
-    rtsp_url: str
-    mqtt: MQTTConfig
-
-
-class StreamStoppedResponse(TypedDict):
-    """Respuesta del endpoint de parada de un stream."""
-
-    msg: str
-    stream_id: str
-    state: StreamState
-
-
-class StopAllStreamsResponse(TypedDict):
-    """Respuesta del endpoint de parada de todos los streams."""
-
-    msg: str
-    stopped: list[StreamStoppedResponse]
-
-
-class StreamHealth(TypedDict):
-    """Resumen del estado de un stream."""
-
-    stream_id: str
-    state: StreamState
-    rtsp_url: str
-    reader_alive: bool
-    processor_alive: bool
-
-
-class StreamsHealthResponse(TypedDict):
-    """Estado agregado del gestor de streams."""
-
-    active_streams: int
-    streams: list[StreamHealth]
-
-
-class HealthResponse(TypedDict):
-    """Respuesta del healthcheck de la API."""
-
-    msg: str
-    stream: StreamsHealthResponse
-
+# ==========================================================
+# PROTOCOLOS (IPC / MULTIPROCESSING)
+# ==========================================================
 
 @runtime_checkable
 class EventLike(Protocol):
-    """Interfaz mínima de un evento compartido."""
+    """Interfaz mínima compatible con multiprocessing.Event."""
 
     def set(self) -> None: ...
-
     def clear(self) -> None: ...
-
     def is_set(self) -> bool: ...
 
 
 @runtime_checkable
 class FrameQueueLike(Protocol):
-    """Interfaz mínima de la cola compartida de frames."""
+    """Cola tipada para transporte de frames."""
 
     def put(self, obj: FramePackage, timeout: float | None = None) -> None: ...
-
     def put_nowait(self, obj: FramePackage) -> None: ...
-
     def get(self, timeout: float | None = None) -> FramePackage: ...
-
     def get_nowait(self) -> FramePackage: ...
 
 
 @runtime_checkable
 class SharedData(Protocol):
-    """Namespace compartido entre procesos lector y procesador."""
+    """
+    Datos compartidos entre procesos.
+
+    Diseño mínimo para evitar acoplamiento.
+    """
 
     frame_queue: FrameQueueLike
 
 
 @runtime_checkable
 class ProjectData(Protocol):
-    """Namespace compartido con configuración y control de un stream."""
+    """
+    Estado compartido de un stream.
 
-    reader_process_running: EventLike
-    processor_process_running: EventLike
+    Incluye:
+    - Flags de control
+    - Configuración efectiva
+    """
+
+    reader_running: EventLike
+    processor_running: EventLike
+
     save_path_logs: str
     save_path_inference: str
+
     yolo_path: str
     yolo_device: str
-    stream_id: str
+
+    session_id: str
 
 
 @runtime_checkable
 class RuntimeState(Protocol):
-    """Estado global compartido entre la API y el gestor de streams."""
+    """
+    Estado global mutable de la aplicación.
+    """
 
     running: bool
     active_streams: int
@@ -223,44 +220,43 @@ class RuntimeState(Protocol):
 
 @runtime_checkable
 class GlobalManager(Protocol):
-    """Métodos del manager usados por la aplicación."""
+    """
+    Abstracción del multiprocessing.Manager.
+    """
 
     def Namespace(self) -> Any: ...
-
     def Queue(self, maxsize: int = 0) -> FrameQueueLike: ...
-
     def Event(self) -> EventLike: ...
-
     def shutdown(self) -> None: ...
-
-
-class AppRuntime(TypedDict):
-    """Objetos compartidos durante la vida de la aplicación."""
-
-    config: AppConfig
-    manager: "GlobalManager"
-    runtime_state: "RuntimeState"
-    yolo_model: "ultralytics.YOLO"
-    stream_manager: Any
 
 
 @runtime_checkable
 class PahoMQTTClient(Protocol):
-    """Superficie mínima usada del cliente `paho-mqtt`."""
-
-    on_connect: Any
-    on_disconnect: Any
-    broker: str
-    port: int
-    topic: str
-    keepalive: int
+    """
+    Interfaz mínima usada del cliente paho-mqtt.
+    """
 
     def connect_async(self, host: str, port: int, keepalive: int = 60) -> Any: ...
-
     def loop_start(self) -> Any: ...
-
     def publish(self, topic: str, payload: str) -> Any: ...
-
     def loop_stop(self) -> Any: ...
-
     def disconnect(self) -> Any: ...
+
+
+# ==========================================================
+# RUNTIME GLOBAL
+# ==========================================================
+
+class AppRuntime(TypedDict):
+    """
+    Contenedor global de dependencias en ejecución.
+
+    Uso:
+        Inyección de dependencias en endpoints/servicios.
+    """
+
+    config: AppConfig
+    manager: GlobalManager
+    runtime_state: RuntimeState
+    yolo_model: YoloModel
+    stream_manager: Any

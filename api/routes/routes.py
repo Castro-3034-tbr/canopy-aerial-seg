@@ -24,10 +24,6 @@ from api.core.constants import (
     HEALTH_OK_MESSAGE,
 )
 from api.core.types import (
-    RtspURL,
-    StopAllStreamsResponse,
-    StreamStartedResponse,
-    StreamStoppedResponse,
     MQTTConfig,
 )
 from api.utils.file_utils import process_image, process_zip
@@ -113,7 +109,7 @@ def start_stream(
         ),
     ),
 
-) -> StreamStartedResponse:
+) -> dict[str, Any]:
     """Inicia un stream RTSP para procesamiento en tiempo real.
 
     Args:
@@ -131,7 +127,7 @@ def start_stream(
         gsd (float): Ground Sample Distance en metros/píxel para cálculo de áreas.
 
     Returns:
-        StreamStartedResponse: detalles del stream iniciado.
+        dict[str, Any]: detalles del stream iniciado.
 
     Raises:
         HTTPException: con código 503 si el runtime no está inicializado.
@@ -141,7 +137,11 @@ def start_stream(
     _require_runtime(request=request)
 
     # Valida la URL RTSP.
-    validated_rtsp_url = RtspURL(url=rtsp_url)
+    if not rtsp_url.startswith("rtsp://"):
+        raise HTTPException(
+            status_code=400,
+            detail="La URL RTSP debe comenzar con 'rtsp://'."
+        )
 
     if session_id is None:
         # Genera un identificador unico para el stream si no se proporciono uno.
@@ -159,7 +159,7 @@ def start_stream(
     # Delega el alta del stream en el gestor central de procesos.
     return request.app.state.stream_manager.start(
         session_id=session_id,
-        rtsp_url=validated_rtsp_url.url,
+        rtsp_url=rtsp_url,
         save_log=save_log,
         save_inference=save_inference,
         confidence_threshold=confidence_threshold,
@@ -180,7 +180,7 @@ def stop_stream(
             "Si no, detiene todas las activas."
         ),
     ),
-) -> StreamStoppedResponse | StopAllStreamsResponse:
+) -> dict[str, Any]:
     """Detiene un stream activo o todos si no se indica `session_id`.
 
     Args:
@@ -189,7 +189,7 @@ def stop_stream(
             si no, detiene todas las sesiones activas.
 
     Returns:
-        StreamStoppedResponse | StopAllStreamsResponse: respuesta del gestor.
+        dict[str, Any]: respuesta del gestor.
 
     Raises:
         HTTPException: con código 503 si el runtime no está inicializado.

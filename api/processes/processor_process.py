@@ -109,7 +109,7 @@ def processor_process(
         inference_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        while project_data.processor_process_running.is_set():
+        while project_data.processor_running.is_set():
             try:
                 # Espera un frame sin bloquear indefinidamente.
                 package: FramePackage = shared_data.frame_queue.get(

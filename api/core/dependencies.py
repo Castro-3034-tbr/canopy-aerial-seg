@@ -96,10 +96,10 @@ def build_runtime() -> AppRuntime:
     manager = cast(GlobalManager, Manager())
     runtime_state = init_runtime_state(manager=manager)
 
-    save_path_config = config.SavePath
-    model_config = config.Model
+    save_path_config = config.save_path
+    model_config = config.model
 
-    yolo_model = initialize_model(model_config.Path, model_config.Device)
+    yolo_model = initialize_model(str(model_config.path), str(model_config.device))
 
     stream_manager = StreamManager(
         manager=manager,
