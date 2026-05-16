@@ -1,4 +1,10 @@
-"""Proceso lector para flujos de video RTSP."""
+"""Proceso lector para flujos de video RTSP.
+
+Este módulo implementa la función `reader_process` que se ejecuta en un
+proceso separado, se conecta a una fuente RTSP usando PyAV, decodifica
+frames y los coloca en una cola compartida para que el procesador los
+consuma.
+"""
 
 from __future__ import annotations
 
@@ -21,18 +27,26 @@ logger = logging.getLogger(__name__)
 def reader_process(
     shared_data: SharedData,
     project_data: ProjectData,
+    session_id: str,
     rtsp_url: str,
 ) -> None:
-    """Funcion principal del proceso de lectura de los frame de video,
-    Se encarga de:
-        - Conectarse a la fuente de video RTSP utilizando PyAV.
-        - Leer los frames del video y extraer la información relevante (ID de frame, PTS, dimensiones).
-        - Colocar los frames en una cola compartida para que el proceso de procesamiento pueda acceder a ellos.
+    """Proceso lector que conecta a RTSP, decodifica frames y los encola.
 
     Args:
-        shared_data (Manager.Namespace): Datos compartidos entre procesos, incluyendo la cola de frames.
-        project_data (Manager.Namespace): Configuración y datos específicos del proyecto, como rutas de guardado y configuración del modelo.
-        rtsp_url (str): URL de la fuente de video RTSP.
+        shared_data (SharedData): Estructuras compartidas entre procesos (incluye `frame_queue`).
+        project_data (ProjectData): Datos y flags específicos de la sesión (ej. `reader_process_running`).
+        session_id (str): Identificador de la sesión.
+        rtsp_url (str): URL de la fuente RTSP.
+
+    Returns:
+        None: Esta función se ejecuta en un proceso separado y finaliza cuando
+            `project_data.reader_process_running` se limpia.
+
+    Notes:
+        - Los errores de conexión o lectura se registran y el proceso reintenta
+            la conexión en la conexión tras `RECONNECT_DELAY_SECONDS`.
+        - Si la cola de frames está llena, se descarta el frame más antiguo
+            para mantener la latencia y se intenta insertar el nuevo.
     """
 
     # Contador de frames para asignar un ID único a cada frame leído
@@ -53,8 +67,8 @@ def reader_process(
             timebase = float(stream.time_base) if stream.time_base is not None else 0.0
             fps = float(stream.average_rate) if stream.average_rate else None
             logger.info(
-                "Stream RTSP conectado stream_id=%s rtsp_url=%s timebase=%s fps=%s",
-                project_data.stream_id,
+                "Stream RTSP conectado session_id=%s rtsp_url=%s timebase=%s fps=%s",
+                session_id,
                 rtsp_url,
                 timebase,
                 fps,
@@ -89,8 +103,8 @@ def reader_process(
 
                     logger.warning(
                         "Cola de frames llena; se descarta el frame mas antiguo "
-                        "stream_id=%s dropped_frame_id=%s new_frame_id=%s",
-                        project_data.stream_id,
+                        "session_id=%s dropped_frame_id=%s new_frame_id=%s",
+                        session_id,
                         dropped_frame_id,
                         frame_counter,
                     )
@@ -99,8 +113,8 @@ def reader_process(
                     except queue.Full:
                         logger.warning(
                             "No se pudo insertar el nuevo frame tras descartar uno "
-                            "stream_id=%s frame_id=%s",
-                            project_data.stream_id,
+                            "session_id=%s frame_id=%s",
+                            session_id,
                             frame_counter,
                         )
                         continue
@@ -110,16 +124,16 @@ def reader_process(
             if project_data.reader_process_running.is_set():
                 logger.info(
                     "Stream RTSP finalizado; se reintentara la conexion "
-                    "stream_id=%s rtsp_url=%s",
-                    project_data.stream_id,
+                    "session_id=%s rtsp_url=%s",
+                    session_id,
                     rtsp_url,
                 )
                 time.sleep(RECONNECT_DELAY_SECONDS)
         except Exception:
             logger.exception(
                 "Lectura RTSP fallida; se reintentara la conexion "
-                "stream_id=%s rtsp_url=%s",
-                project_data.stream_id,
+                "session_id=%s rtsp_url=%s",
+                session_id,
                 rtsp_url,
             )
             time.sleep(RECONNECT_DELAY_SECONDS)

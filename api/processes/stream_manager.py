@@ -1,10 +1,14 @@
-"""Gestion del ciclo de vida de los procesos asociados a streams."""
+"""Gestión del ciclo de vida de los procesos asociados a streams.
+
+Contiene la implementación de `StreamManager` que arranca y detiene los
+procesos de lectura e inferencia para cada sesión RTSP, mantiene el estado
+de las sesiones y expone métodos auxiliares para salud y parada.
+"""
 
 from __future__ import annotations
 
 import logging
 import multiprocessing
-from uuid import uuid4
 
 from fastapi import HTTPException
 
@@ -19,18 +23,19 @@ from api.core.data_init import init_project_data, init_shared_data
 from api.processes.processor_process import processor_process
 from api.processes.reader_process import reader_process
 
+from typing import Any
+
 from api.core.types import (
     GlobalManager,
     ModelConfig,
     MQTTConfig,
     RuntimeState,
-    SavePathConfig,
+    ApiSavePathConfig,
     StopAllStreamsResponse,
     StreamHealth,
     StreamSession,
     StreamStartedResponse,
     StreamStoppedResponse,
-    StreamsHealthResponse,
 )
 from common.types.model import YoloModel
 
@@ -38,26 +43,29 @@ logger = logging.getLogger(__name__)
 
 
 class StreamManager:
-    """Manager del ciclo de vida de los procesos de lectura e inferencia de cada stream,
-    incluyendo la creacion de los datos compartidos, arranque y parada de los procesos,
-    y el mantenimiento del estado de cada stream activo."""
+    """Manager del ciclo de vida de los procesos de lectura e inferencia.
+
+    Crea los recursos compartidos por proceso, arranca y para los procesos
+    `reader_process` y `processor_process`, y mantiene un registro de las
+    sesiones activas en `self.sessions`.
+    """
 
     def __init__(
         self,
         manager: GlobalManager,
         model_config: ModelConfig,
-        save_path_config: SavePathConfig,
+        save_path_config: ApiSavePathConfig,
         runtime_state: RuntimeState,
         yolo_model: YoloModel,
     ) -> None:
-        """Inicializa el StreamManager con la configuración del modelo, las rutas de guardado y el estado de ejecución compartido.
+        """Inicializa el `StreamManager`.
 
         Args:
-            manager (GlobalManager): Instancia del GlobalManager para la creación de datos compartidos entre procesos.
-            model_config (dict): Configuración del modelo, incluyendo la ruta al modelo YOLO y el dispositivo de inferencia.
-            save_path_config (dict): Configuración de las rutas de guardado para logs e inferencias visuales.
-            runtime_state (runtimeState): Estado de ejecución compartido a nivel de aplicación, incluyendo el número de streams activos.
-            yolo_model (ultralytics.YOLO): Instancia del modelo de inferencia YOLO para ser reutilizada en los procesos.
+            manager (GlobalManager): Instancia para crear estructuras compartidas.
+            model_config (ModelConfig): Configuración del modelo (ruta, dispositivo, etc.).
+            save_path_config (ApiSavePathConfig): Rutas para guardar logs e inferencias.
+            runtime_state (RuntimeState): Estado de ejecución compartido de la aplicación.
+            yolo_model (YoloModel): Instancia del modelo YOLO para pasar a los procesos.
         """
 
         self.manager = manager
@@ -69,42 +77,34 @@ class StreamManager:
 
     def start(
         self,
-        stream_id: str | None,
+        session_id: str,
         rtsp_url: str,
         save_log: bool,
         save_inference: bool,
         confidence_threshold: float,
-        mqtt_broker: str,
-        mqtt_port: int,
-        mqtt_topic: str,
+        mqtt_config: MQTTConfig,
+        overlap: tuple[float, float],
+        gsd: float,
     ) -> StreamStartedResponse:
-        """Inicio de los procesos de lectura e inferencia para un nuevo stream
+        """Arranca los procesos para una nueva sesión de stream.
 
         Args:
-            stream_id (str | None): ID opcional para la sesión del stream; si no se proporciona, se genera uno automáticamente.
-            rtsp_url (str): URL de la fuente de video RTSP.
-            save_log (bool): Indicador para guardar logs.
-            save_inference (bool): Indicador para guardar inferencias visuales.
-            confidence_threshold (float): Umbral de confianza para filtrar detecciones.
-            mqtt_broker (str): Dirección del broker MQTT.
-            mqtt_port (int): Puerto del broker MQTT.
-            mqtt_topic (str): Tema del broker MQTT.
-
-        Raises:
-            HTTPException: Si ya existe una sesión con el stream_id proporcionado.
-            HTTPException: Si no se pudieron iniciar los procesos del stream.
-            HTTPException: Si los procesos del stream no quedaron activos tras el arranque.
+            session_id (str): Identificador de la sesión.
+            rtsp_url (str): URL de la fuente RTSP.
+            save_log (bool): Si True, se guardan logs.
+            save_inference (bool): Si True, se guardan inferencias visuales.
+            confidence_threshold (float): Umbral para filtrar detecciones.
+            mqtt_config (MQTTConfig): Configuración MQTT para la sesión.
+            overlap (tuple[float, float]): Recorte de solapes en máscaras.
+            gsd (float): Ground Sample Distance en metros/píxel.
 
         Returns:
-            dict: Información sobre la sesión del stream iniciada, incluyendo el stream_id, estado, URL de RTSP y configuración MQTT.
+            StreamStartedResponse: Detalles de la sesión arrancada.
+
+        Raises:
+            HTTPException: con código 500 si falla el arranque de procesos o si
+                alguno no queda activo tras el start().
         """
-        # Si no se proporciona un stream_id, se genera uno automaticamente
-        session_id = stream_id or f"stream-{uuid4().hex[:8]}"
-        if session_id in self.sessions:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Ya existe una sesión con stream_id '{session_id}'.",
-            )
 
         # Inicialización de los datos compartidos y de los procesos de lectura e inferencia para el nuevo stream
         shared_data = init_shared_data(manager=self.manager)
@@ -115,14 +115,16 @@ class StreamManager:
             save_path_logs=str(self.save_path_config.Logs),
             save_path_inference=str(self.save_path_config.Inference),
         )
+
+        # Inicialización de los flags de ejecución para los procesos de lectura e inferencia, y asignación del session_id a la sesión.
         project_data.reader_process_running.set()
         project_data.processor_process_running.set()
-        project_data.stream_id = session_id
+        project_data.session_id = session_id
 
         # Construccion del proceso de lectura
         reader = multiprocessing.Process(
             target=reader_process,
-            args=(shared_data, project_data, rtsp_url),
+            args=(shared_data, project_data, session_id, rtsp_url),
             name=f"ReaderProcess-{session_id}",
             daemon=True,
         )
@@ -133,13 +135,14 @@ class StreamManager:
             args=(
                 shared_data,
                 project_data,
+                session_id,
                 save_log,
                 save_inference,
                 confidence_threshold,
-                mqtt_broker,
-                mqtt_port,
-                mqtt_topic,
                 self.yolo_model,
+                mqtt_config,
+                overlap,
+                gsd,
             ),
             name=f"ProcessorProcess-{session_id}",
             daemon=True,
@@ -154,7 +157,7 @@ class StreamManager:
             project_data.reader_process_running.clear()
             project_data.processor_process_running.clear()
             logger.exception(
-                "No se pudieron iniciar los procesos del stream_id=%s rtsp_url=%s",
+                "No se pudieron iniciar los procesos del session_id=%s rtsp_url=%s",
                 session_id,
                 rtsp_url,
             )
@@ -172,27 +175,22 @@ class StreamManager:
                 detail="Los procesos del stream no quedaron activos tras el arranque.",
             )
 
-        # Guardado de la informacion de la sesion del stream
-        mqtt_config: MQTTConfig = {
-            "broker": mqtt_broker,
-            "port": mqtt_port,
-            "topic": mqtt_topic,
-        }
-        self.sessions[session_id] = {
-            "stream_id": session_id,
-            "state": "running",
-            "rtsp_url": rtsp_url,
-            "shared_data": shared_data,
-            "project_data": project_data,
-            "reader_process": reader,
-            "processor_process": processor,
-            "mqtt": mqtt_config,
-        }
+        # Registro de la sesión del stream en el manager con su información.
+        self.sessions[session_id] = StreamSession(
+            state="running",
+            rtsp_url = rtsp_url,
+            shared_data = shared_data,
+            project_data = project_data,
+            reader_process = reader,
+            processor_process = processor,
+            mqtt = mqtt_config,
+        )
+
         self.runtime_state.active_streams = len(self.sessions)
 
         return {
             "msg": STREAM_START_SUCCESS_MESSAGE,
-            "stream_id": session_id,
+            "session_id": session_id,
             "state": "running",
             "rtsp_url": rtsp_url,
             "mqtt": mqtt_config,
@@ -200,13 +198,13 @@ class StreamManager:
 
     def stop(
         self,
-        stream_id: str | None = None,
+        session_id: str | None = None,
         timeout: float = PROCESS_JOIN_TIMEOUT,
     ) -> StreamStoppedResponse | StopAllStreamsResponse:
         """Parada de los procesos de lectura e inferencia para un stream específico o para todos los streams activos.
 
         Args:
-            stream_id (str | None, optional): ID del stream a detener. Defaults to None.
+            session_id (str | None, optional): ID del stream a detener. Defaults to None.
             timeout (float, optional): Tiempo máximo de espera para la finalización de los procesos. Defaults to PROCESS_JOIN_TIMEOUT.
 
         Raises:
@@ -216,12 +214,12 @@ class StreamManager:
             dict: Información sobre el stream detenido.
         """
 
-        # Si no se proporciona un stream_id, se detienen todos los streams activos
-        if stream_id is None:
+        # Si no se proporciona un session_id, se detienen todos los streams activos
+        if session_id is None:
 
             # Detención de todos los streams activos utilizando el método _stop_one para cada sesión, y construcción de la respuesta con la información de los streams detenidos.
             stopped_streams = [
-                self._stop_one(stream_id=session_id, timeout=timeout)
+                self._stop_one(session_id=session_id, timeout=timeout)
                 for session_id in list(self.sessions)
             ]
             return {
@@ -229,22 +227,22 @@ class StreamManager:
                 "stopped": stopped_streams,
             }
 
-        # Si no se encuentra una sesión con el stream_id proporcionado, se lanza una HTTPException indicando que no existe la sesión.
-        if stream_id not in self.sessions:
+        # Si no se encuentra una sesión con el session_id proporcionado, se lanza una HTTPException indicando que no existe la sesión.
+        if session_id not in self.sessions:
             raise HTTPException(
                 status_code=404,
-                detail=f"No existe ninguna sesión con stream_id '{stream_id}'.",
+                detail=f"No existe ninguna sesión con session_id '{session_id}'.",
             )
 
         # Parada del stream específico utilizando el método _stop_one.
-        stopped = self._stop_one(stream_id=stream_id, timeout=timeout)
+        stopped = self._stop_one(session_id=session_id, timeout=timeout)
         return {
             "msg": STREAM_STOP_SUCCESS_MESSAGE,
-            "stream_id": stopped["stream_id"],
+            "session_id": stopped["session_id"],
             "state": stopped["state"],
         }
 
-    def health(self) -> StreamsHealthResponse:
+    def health(self) -> dict[str, Any]:
         """Proporciona información sobre el estado de los streams activos,
         incluyendo el número de streams activos, el estado de cada stream,
         la URL de RTSP y el estado de los procesos de lectura e inferencia.
@@ -252,23 +250,27 @@ class StreamManager:
         Returns:
             dict: Información sobre el estado de los streams activos, incluyendo el número de streams activos, el estado de cada stream, la URL de RTSP y el estado de los procesos de lectura e inferencia.
         """
-        return {
+        info_streams = {
             "active_streams": len(self.sessions),
-            "streams": [
-                StreamHealth(
-                    stream_id=session_id,
-                    state=session["state"],
-                    rtsp_url=session["rtsp_url"],
-                    reader_alive=bool(session["reader_process"].is_alive()),
-                    processor_alive=bool(session["processor_process"].is_alive()),
-                )
-                for session_id, session in self.sessions.items()
-            ],
+            "streams": []
         }
+
+        for session_id, session in self.sessions.items():
+            stream_info = StreamHealth(
+                session_id=session_id,
+                state=session.state,
+                rtsp_url=session.rtsp_url,
+                reader_alive=bool(session.reader_process.is_alive()),
+                processor_alive=bool(session.processor_process.is_alive()),
+                mqtt=session.mqtt,
+            )
+            info_streams["streams"].append(stream_info)
+
+        return info_streams
 
     def _stop_one(
         self,
-        stream_id: str,
+        session_id: str,
         timeout: float,
     ) -> StreamStoppedResponse:
         """Parada de los procesos de lectura e inferencia para un stream especifico,
@@ -276,42 +278,42 @@ class StreamManager:
         y la eliminación de la sesión del stream.
 
         Args:
-            stream_id (str): ID del stream a detener
+            session_id (str): ID del stream a detener
             timeout (float): Tiempo máximo de espera para la finalización de los procesos
 
         Returns:
             dict: Información sobre el stream detenido
         """
 
-        # Obtencion de la sesion del stream
-        session = self.sessions[stream_id]
-        session["state"] = "stopping"
-        session["project_data"].reader_process_running.clear()
-        session["project_data"].processor_process_running.clear()
+        # Obtencion de la session del stream
+        session = self.sessions[session_id]
+        session.state = "stopping"
+        session.project_data.reader_process_running.clear()
+        session.project_data.processor_process_running.clear()
 
         # Espera para la finalizacion de los procesos
         for process in (
-            session["reader_process"],
-            session["processor_process"],
+            session.reader_process,
+            session.processor_process,
         ):
             process.join(timeout=timeout)
 
-            # Si el proceso no termina a tiempo, se fuerza su terminacion
+            # Si el proceso no termina a tiempo, se fuerza su terminación
             if process.is_alive():
-                logging.warning(
-                    "El proceso %s del stream_id=%s no terminó a tiempo; se fuerza terminate().",
+                logger.warning(
+                    "El proceso %s del session_id=%s no terminó a tiempo; se fuerza terminate().",
                     process.name,
-                    stream_id,
+                    session_id,
                 )
                 process.terminate()
                 process.join(timeout=timeout)
 
-        # Eliminacion de la sesion del stream
-        del self.sessions[stream_id]
+        # Eliminacion de la session del stream
+        del self.sessions[session_id]
         self.runtime_state.active_streams = len(self.sessions)
 
         return {
             "msg": STREAM_STOP_SUCCESS_MESSAGE,
-            "stream_id": stream_id,
+            "session_id": session_id,
             "state": "stopped",
         }
