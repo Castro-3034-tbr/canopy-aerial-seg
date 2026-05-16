@@ -1,9 +1,18 @@
-"""Construccion del runtime y la aplicacion FastAPI."""
+"""Construcción del runtime y la aplicación FastAPI.
+
+Este módulo crea el estado compartido (manager, runtime_state), carga la
+configuración, inicializa el modelo YOLO y construye el `StreamManager`.
+También expone el contexto de vida (`lifespan`) y helpers para arrancar y
+parar el proceso `mediamtx` usado para retransmisión.
+"""
 
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import logging
 from multiprocessing import Manager
+import subprocess
+from pathlib import Path
 from typing import AsyncIterator, cast
 
 from fastapi import FastAPI
@@ -16,28 +25,82 @@ from api.perception.yolo_inference import initialize_model
 from api.processes.stream_manager import StreamManager
 from api.routes.routes import router
 from common.logger import configure_logging
+from common.constants import CONFIG_DIR
+
+
+logger = logging.getLogger(__name__)
+
+def _start_mediamtx() -> subprocess.Popen[str]:
+    """Lanza Mediamtx como proceso hijo de la API.
+
+    Returns:
+        subprocess.Popen[str]: Proceso lanzado.
+
+    Raises:
+        FileNotFoundError: si faltan binario o fichero de configuración.
+    """
+    mediamtx_dir = Path(CONFIG_DIR).parent / "mediamtx"
+    mediamtx_bin = mediamtx_dir / "mediamtx"
+    mediamtx_config = mediamtx_dir / "mediamtx.yml"
+
+    if not mediamtx_bin.exists():
+        raise FileNotFoundError(f"No se encontró el binario de Mediamtx: {mediamtx_bin}")
+    if not mediamtx_config.exists():
+        raise FileNotFoundError(f"No se encontró la configuración de Mediamtx: {mediamtx_config}")
+
+    logger.info("Iniciando Mediamtx desde %s", mediamtx_bin)
+    return subprocess.Popen(
+        [str(mediamtx_bin), str(mediamtx_config)],
+        cwd=mediamtx_dir,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+
+
+def _stop_mediamtx(mediamtx_process: subprocess.Popen[str] | None) -> None:
+    """Detiene Mediamtx si está en ejecución.
+
+    Args:
+        mediamtx_process (subprocess.Popen[str] | None): proceso retornado por `_start_mediamtx`.
+    """
+    if mediamtx_process is None:
+        return
+
+    if mediamtx_process.poll() is not None:
+        return
+
+    logger.info("Deteniendo Mediamtx")
+    mediamtx_process.terminate()
+    try:
+        mediamtx_process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        logger.warning("Mediamtx no cerró a tiempo; forzando apagado")
+        mediamtx_process.kill()
+        mediamtx_process.wait(timeout=5)
 
 
 def build_runtime() -> AppRuntime:
-    """Construye el estado compartido y los componentes principales."""
-    # Configura el logging antes de inicializar el resto del runtime.
+    """Construye y devuelve el runtime compartido usado por la aplicación.
+
+    El runtime incluye la configuración, el manager de multiprocessing, el
+    estado de ejecución, el modelo YOLO cargado y el `StreamManager`.
+
+    Returns:
+        AppRuntime: Diccionario con claves `config`, `manager`, `runtime_state`,
+            `yolo_model` y `stream_manager`.
+    """
     configure_logging()
-    # Carga la configuracion persistida del proyecto.
-    config = load_api_config()
-    # Crea el gestor de objetos compartidos para los procesos hijos.
+    config = load_api_config(Path(CONFIG_DIR) / "config_api.json")
+
     manager = cast(GlobalManager, Manager())
     runtime_state = init_runtime_state(manager=manager)
 
-    # Extrae los bloques de configuracion que usan el modelo y las salidas.
     save_path_config = config.SavePath
     model_config = config.Model
 
-    # Construye el modelo una sola vez para reutilizarlo en la aplicacion.
-    yolo_model = initialize_model(
-        model_config.Path,
-        model_config.Device,
-    )
-    # Crea el gestor responsable de arrancar y detener streams.
+    yolo_model = initialize_model(model_config.Path, model_config.Device)
+
     stream_manager = StreamManager(
         manager=manager,
         model_config=model_config,
@@ -56,7 +119,14 @@ def build_runtime() -> AppRuntime:
 
 
 def shutdown_runtime(app: FastAPI) -> None:
-    """Libera los recursos construidos durante el startup."""
+    """Libera los recursos creados en `build_runtime` y durante el lifespan.
+
+    Args:
+        app (FastAPI): Instancia de la aplicación que contiene `app.state`.
+    """
+    mediamtx_process = getattr(app.state, "mediamtx_process", None)
+    _stop_mediamtx(mediamtx_process)
+
     stream_manager = getattr(app.state, "stream_manager", None)
     if stream_manager is not None:
         stream_manager.stop()
@@ -68,12 +138,17 @@ def shutdown_runtime(app: FastAPI) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Inicializa y libera el runtime pesado durante el ciclo de vida."""
-    runtime = build_runtime()
+    """Context manager que inicializa y libera el runtime en el startup/shutdown.
 
-    # Expone el runtime en app.state para reutilizarlo desde las rutas.
+    Durante el startup construye el runtime y arranca `mediamtx`. En shutdown
+    detiene `mediamtx` y libera recursos.
+    """
+    runtime = build_runtime()
+    mediamtx_process = _start_mediamtx()
+
     for key, value in runtime.items():
         setattr(app.state, key, value)
+    app.state.mediamtx_process = mediamtx_process
 
     try:
         yield
@@ -82,8 +157,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    """Crea la aplicacion FastAPI y registra las dependencias."""
-    # Inicializa la aplicacion con los metadatos visibles en OpenAPI.
+    """Crea la aplicación FastAPI y registra las dependencias principales.
+
+    Returns:
+        FastAPI: Aplicación configurada y lista para arrancar.
+    """
     app = FastAPI(
         title=APP_TITLE,
         description=APP_DESCRIPTION,
@@ -91,6 +169,5 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Registra el router principal de la API.
     app.include_router(router)
     return app
