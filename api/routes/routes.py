@@ -263,6 +263,9 @@ async def predict_file(
             yolo_model=yolo_model,
             contents=contents,
             confidence_threshold=confidence_threshold,
+            overlap=overlap,
+            gsd=gsd,
+            test_mode=False,  # Desactivamos el modo de prueba para calcular métricas reales
         )
 
     elif content_type.startswith("application/zip"):
