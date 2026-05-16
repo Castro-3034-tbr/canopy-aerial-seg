@@ -1,4 +1,8 @@
-"""Creacion y cierre del cliente MQTT del proyecto."""
+"""Creación y cierre del cliente MQTT del proyecto.
+
+Proporciona funciones para inicializar el cliente Paho MQTT y detenerlo de
+forma segura al terminar el proceso.
+"""
 
 from __future__ import annotations
 
@@ -6,46 +10,44 @@ import logging
 
 import paho.mqtt.client as mqtt
 
-from api.core.constants import DEFAULT_MQTT_KEEPALIVE
-from api.core.types import PahoMQTTClient
+from api.core.types import MQTTConfig, PahoMQTTClient
 from typing import cast
 
 logger = logging.getLogger(__name__)
 
 
 def connect_mqtt(
-    client_id: str,
-    broker: str,
-    port: int,
-    topic: str,
-    keepalive: int = DEFAULT_MQTT_KEEPALIVE,
+    config: MQTTConfig,
 ) -> PahoMQTTClient | None:
-    """Inicializa un cliente MQTT y devuelve cliente, config y estado."""
+    """Inicializa y arranca un cliente MQTT basado en Paho.
+
+    Args:
+        config (MQTTConfig): Configuración del broker MQTT (host, port, topic, client_id, keepalive).
+
+    Returns:
+        PahoMQTTClient | None: Cliente MQTT inicializado y con el loop de red
+            arrancado, o `None` si la inicialización falló.
+
+    Notes:
+        En caso de error la función registra la excepción y devuelve `None`.
+    """
     try:
         logger.info(
             "Inicializando cliente MQTT con broker=%s puerto=%s topic=%s client_id=%s",
-            broker,
-            port,
-            topic,
-            client_id,
+            config.host,
+            config.port,
+            config.topic,
+            config.client_id,
         )
         
         # Configuramos el cliente MQTT y sus callbacks.
-        client = mqtt.Client(client_id=client_id)
-
-        # FIXME: Cambiar la forma de guardar el tipo de datos para poder añadir los elementos de configuracion
+        client = mqtt.Client(client_id=config.client_id)
         
-        # Guardamos la configuracion en user_data para que el publicador y los logs
-        # puedan acceder a ella sin depender de variables externas.
-        client.broker = broker
-        client.port = port
-        client.topic = topic
-        client.keepalive = keepalive
-        
+        # Conectamos de forma asíncrona para no bloquear el proceso principal. El loop de red se iniciará en el callback de conexión.
         client.connect_async(
-            broker,
-            port,
-            keepalive=keepalive,
+            host=config.host,
+            port=config.port,
+            keepalive=config.keepalive,
         )
         # Bind de callbacks con el topic incluido en el closure para que puedan usarlo.
         client.loop_start()
@@ -54,16 +56,23 @@ def connect_mqtt(
         logger.exception(
             "No se pudo inicializar MQTT con broker=%s puerto=%s topic=%s. "
             "El procesado continuara sin MQTT.",
-            broker,
-            port,
-            topic,
+            config.host,
+            config.port,
+            config.topic,
         )
         return None
 
 def disconnect_mqtt(
     client: PahoMQTTClient | None,
 ) -> None:
-    """Detiene el loop de red y desconecta el cliente MQTT."""
+    """Detiene el loop de red y desconecta el cliente MQTT de forma segura.
+
+    Args:
+        client (PahoMQTTClient | None): Cliente retornado por `connect_mqtt`.
+
+    Returns:
+        None
+    """
     if client is None:
         logger.debug("El cliente MQTT no estaba inicializado.")
         return
