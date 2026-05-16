@@ -4,12 +4,12 @@
     "PORT": 8080
   },
   "SavePath": {
-    "Logs": "./outputs/logs",
-    "Inference": "./outputs/inference"
+    "Logs": "./output/logs",
+    "Inference": "./output/inference"
   },
   "Model": {
     "Name": "yolo26n-seg",
-    "Path": "models/yolo26n-seg.pt",
+    "Path": "models/yolo_vegetation.pt",
     "Device": "cpu"
   }
 }
