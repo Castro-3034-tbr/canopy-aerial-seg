@@ -44,7 +44,7 @@ def main() -> None:
 
     # Crea la aplicacion en modo factory para evitar side effects al importar.
     uvicorn.run(
-        "main:create_app",
+        "run_api:create_app",
         factory=True,
         host=api_host,
         port=api_port,
