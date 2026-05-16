@@ -9,7 +9,7 @@ from ultralytics.utils.metrics import DetMetrics
 
 from common.types.base import StrictModel
 from common.types.geometry import BoundingBox, Coordinates, Mask
-from common.types.media import FrameMask
+from common.types.media import Imagen
 
 YoloModel: TypeAlias = YOLO
 YoloResult: TypeAlias = DetMetrics | list[Results] | None
@@ -22,7 +22,7 @@ class InferenceDetection(StrictModel):
     confidence: float = Field(ge=0.0, le=1.0)
     bbox: BoundingBox
     mask: Mask
-    frame_mask: FrameMask
+    frame_mask: Imagen
     centroid: Coordinates
 
 

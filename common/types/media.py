@@ -11,9 +11,7 @@ from pydantic import FilePath
 
 from common.types.base import StrictModel
 
-Imagen: TypeAlias = NDArray[np.uint8]
-FrameArray: TypeAlias = Imagen
-FrameMask: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
+Imagen: TypeAlias = NDArray[np.floating[Any] | np.uint8 | np.bool_]
 OutputPathResult: TypeAlias = tuple[Path, str]
 
 
