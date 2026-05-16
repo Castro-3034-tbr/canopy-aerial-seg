@@ -1,33 +1,35 @@
-"""Funciones de postproceso para mascaras y detecciones."""
+"""Funciones de postproceso para máscaras y detecciones.
+
+Contiene utilidades para extraer vértices de máscaras y calcular centroides
+normalizados sobre polígonos definidos por coordenadas.
+"""
 
 from __future__ import annotations
-
-from typing import Any
 
 import cv2
 import numpy as np
 
-from common.types.model import InferenceDetection
 from common.types.geometry import Coordinates, Polygon, Mask
-from common.types.media import FrameMask,MaskMetric
+from common.types.media import Imagen
 
 
 def calculate_centroid(polygon: Polygon) -> Coordinates:
-    """Calcula el centroide de un polígono.
+    """Calcula el centroide de un polígono en coordenadas normalizadas.
 
-    Si el área es casi cero, devuelve la media de los puntos para evitar
-    divisiones por cero.
-    
+    Si el área es prácticamente cero se devuelve la media de los puntos
+    para evitar divisiones por cero.
+
     Args:
-        polygon: Lista de puntos que definen el polígono, con coordenadas normalizadas
+        polygon (Polygon): Lista de `Coordinates` que definen el polígono
+            con valores normalizados en el rango [0.0, 1.0].
+
     Returns:
-        Coordenadas del centroide con valores normalizados entre 0 y 1.
-    
+        Coordinates: Coordenadas del centroide normalizadas entre 0 y 1.
     """
 
-    # Si no hay puntos, no se puede calcular un centroide válido.
+    # Si no hay puntos, devuelve el origen (0,0) como centroide por defecto.
     if not polygon:
-        return Coordinates(x=-1.0, y=-1.0)
+        return Coordinates(x=0.0, y=0.0)
 
     # Extraemos las coordenadas x e y de los puntos del polígono.
     x = np.array([point.x for point in polygon], dtype=np.float64)
@@ -38,7 +40,7 @@ def calculate_centroid(polygon: Polygon) -> Coordinates:
     area2 = np.sum(cross)
 
     if abs(area2) < 1e-12:
-        return Coordinates(x=float(np.mean(x)), y=float(np.mean(y)))
+        return Coordinates(x=float(np.clip(np.mean(x), 0.0, 1.0)), y=float(np.clip(np.mean(y), 0.0, 1.0)))
 
     # Calculamos el centroide usando la fórmula del centroide de un polígono
     cx = np.sum((x + np.roll(x, -1)) * cross) / (3 * area2)
@@ -50,12 +52,16 @@ def calculate_centroid(polygon: Polygon) -> Coordinates:
     )
 
 
-def extract_vertices(mask: FrameMask) -> Mask:
-    """Extrae los vertices del contorno principal de una mascara.
+def extract_vertices(mask: Imagen) -> Mask:
+    """Extrae los vértices del contorno principal de una máscara.
+
     Args:
-        mask (FrameMask): Mascara binaria del objeto detectado.
+        mask (Imagen): Máscara binaria del objeto detectado (H x W) con
+            valores 0/1 o 0/255.
+
     Returns:
-        Mask: Lista de coordenadas normalizadas de los vertices del contorno.
+        Mask: Lista de `Coordinates` normalizadas del contorno principal. Si
+            no hay contornos, se devuelve una lista vacía.
     """
     # Si no hay mascara, no hay contorno que analizar.
     if len(mask) == 0:
@@ -82,34 +88,3 @@ def extract_vertices(mask: FrameMask) -> Mask:
         for x, y in pts
     ]
     return vertices
-
-
-def convert_detections_to_json(detections: list[InferenceDetection], frame_id: int | None) -> dict[str, Any]:
-    """Convierte las detecciones a un formato JSON serializable.
-    Args:
-        detections (list[InferenceDetection]): Lista de detecciones con coordenadas normalizadas.
-        frame_id (int | None): Identificador del frame asociado a las detecciones, si
-            está disponible.
-    Returns:
-        dict[str, Any]: Diccionario con la información de las detecciones listo para ser convertido a JSON.
-    """
-    
-    if frame_id is not None:
-        json_detections: dict[str, Any] = {"frame_id": frame_id}
-    else:
-        json_detections = {}
-    for i , det in enumerate(detections):
-        json_detections[f"detection_{i}"] = {
-            "class_id": det.class_id,
-            "confidence": det.confidence,
-            "bbox": {
-                "p1": {"x": det.bbox.p1.x, "y": det.bbox.p1.y},
-                "p2": {"x": det.bbox.p2.x, "y": det.bbox.p2.y},
-                "width": det.bbox.width,
-                "height": det.bbox.height,
-            },
-            "mask": [{"x": point.x, "y": point.y} for point in det.mask],
-            "centroid": {"x": det.centroid.x, "y": det.centroid.y},
-        }
-
-    return json_detections

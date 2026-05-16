@@ -1,4 +1,8 @@
-"""Envoltura del modelo YOLO usada por el proyecto."""
+"""Envoltura del modelo YOLO usada por el proyecto.
+
+Proporciona utilidades para inicializar el modelo, ejecutar predicciones,
+adaptar los resultados a `InferenceDetection` y dibujar resultados sobre frames.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +15,6 @@ import ultralytics
 from api.core.constants import (
     CENTROID_COLOR,
     CENTROID_RADIUS,
-    DEFAULT_MASK_THRESHOLD,
     MASK_COLOR,
     MASK_OVERLAY_ALPHA,
     MASK_OVERLAY_BETA,
@@ -21,53 +24,91 @@ from common.types.geometry import BoundingBox
 from common.types.model import InferenceDetection
 from api.perception.postprocessing import calculate_centroid, extract_vertices
 from common.types.geometry import Coordinates
-from common.types.media import FrameArray
+from common.types.media import Imagen
 from common.types.model import YoloModel
+
+from api.perception.analisis import remove_overlap
 
 
 def initialize_model(model_path: str, device: str = "cpu") -> YoloModel:
-    """Inicializa el modelo YOLO con la ruta y el dispositivo indicados."""
-    # Carga el modelo una sola vez y lo mueve al dispositivo elegido.
+    """Inicializa y devuelve una instancia del modelo YOLO.
+
+    Args:
+        model_path (str): Ruta al archivo de pesos del modelo.
+        device (str, optional): Dispositivo para inferencia (ej. 'cpu' o 'cuda').
+
+    Returns:
+        YoloModel: Modelo YOLO cargado y preparado en el dispositivo indicado.
+    """
     model = ultralytics.YOLO(model_path)
     model.to(device)
     return model
 
 def predict(
     model: YoloModel,
-    frame: FrameArray,
+    frame: Imagen,
     confidence_threshold: float = 0.0,
+    overlap: tuple[float, float] = (0.1, 0.1),
     debug: bool = False,
-) -> Any:
-    """Realiza la inferencia sobre un frame."""
-    # Mantiene la salida nativa de Ultralytics para reutilizar su API.
+) -> list[InferenceDetection]:
+    """Ejecuta inferencia sobre un frame y adapta los resultados.
+
+    Args:
+        model (YoloModel): Modelo preparado para inferencia.
+        frame (Imagen): Frame en formato BGR (np.ndarray).
+        confidence_threshold (float, optional): Umbral mínimo de confianza.
+        overlap (tuple[float,float], optional): Fracción a recortar para eliminar solapes.
+        debug (bool, optional): Si True, activa salida verbosa del modelo.
+
+    Returns:
+        list[InferenceDetection]: Lista de detecciones serializables.
+    """
     results = model(frame, conf=confidence_threshold, verbose=debug)
+    return extract_detections(results=results, overlap=overlap)
 
-    #Conversion de los rultados a un formato comun
-    return extract_detections(results=results)
+def extract_detections(results: Any, overlap: tuple[float, float]) -> list[InferenceDetection]:
+    """Adapta los resultados del modelo Ultralytics a `InferenceDetection`.
 
-def extract_detections(results: Any) -> list[InferenceDetection]:
-    """Adapta los resultados del modelo a un formato serializable."""
-    # Si no hay resultados, devuelve una lista vacia compatible con JSON.
+    Args:
+        results (Any): Salida del modelo Ultralytics para un solo frame.
+        overlap (tuple[float,float]): Fracción a recortar en (x, y) para máscaras.
+
+    Returns:
+        list[InferenceDetection]: Lista de detecciones con máscaras y centroides.
+    """
     if not results:
         return []
 
-    # Extraccion de los resultados de una iteraccion
     result_yolo = results[0]
     boxes = result_yolo.boxes.xyxy.cpu().numpy()
     classes = result_yolo.boxes.cls.cpu().numpy()
     confidences = result_yolo.boxes.conf.cpu().numpy()
-    masks = result_yolo.masks.data.cpu().numpy() if result_yolo.masks is not None else []
+    masks = (
+        result_yolo.masks.data.cpu().numpy()
+        if result_yolo.masks is not None
+        else []
+    )
     frame_height, frame_width = result_yolo.orig_shape[:2]
 
     detections: list[InferenceDetection] = []
-    # Convierte cada deteccion a tipos simples para serializacion.
+    masks_iter = (
+        masks
+        if len(masks) != 0
+        else [
+            np.zeros((frame_height, frame_width), dtype=np.uint8)
+            for _ in range(len(boxes))
+        ]
+    )
+
     for index, class_id in enumerate(classes):
+        mask_cropped = remove_overlap(mask=masks_iter[index], overlap=overlap)
+
         x1, y1, x2, y2 = boxes[index]
         x1_norm = float(x1 / frame_width)
         y1_norm = float(y1 / frame_height)
         x2_norm = float(x2 / frame_width)
         y2_norm = float(y2 / frame_height)
-        vertices = extract_vertices(mask=masks[index])
+        vertices = extract_vertices(mask=mask_cropped)
 
         detection = InferenceDetection(
             class_id=int(class_id),
@@ -79,70 +120,68 @@ def extract_detections(results: Any) -> list[InferenceDetection]:
                 height=float((y2 - y1) / frame_height),
             ),
             mask=vertices,
-            frame_mask=masks[index],
-            centroid=calculate_centroid(polygon=vertices)
+            frame_mask=mask_cropped,
+            centroid=calculate_centroid(polygon=vertices),
         )
         detections.append(detection)
 
     return detections
 
-def draw_results(frame: FrameArray, results: list[InferenceDetection]) -> FrameArray:
-    """Dibuja mascaras y centroides sobre el frame original."""
-    # Obtencion del tamaño del frame para escalar las coordenadas normalizadas a pixeles.
+def draw_results(frame: Imagen, results: list[InferenceDetection]) -> Imagen:
+    """Dibuja centroides y máscaras sobre un frame en BGR.
+
+    Args:
+        frame (Imagen): Imagen de entrada (H x W x 3) en uint8.
+        results (list[InferenceDetection]): Detecciones con centroid y máscara.
+
+    Returns:
+        Imagen: Imagen con overlays aplicados (modificación in-place del frame).
+    """
+
     height, width = frame.shape[:2]
 
-    # Iteraccion por cada deteccion
+    # Máscara acumulada (optimización: una sola por frame)
+    combined_mask = np.zeros_like(frame)
+
     for detection in results:
-        pt1 = (
-            int(detection.bbox.p1.x * width),
-            int(detection.bbox.p1.y * height),
-        )
-        pt2 = (
-            int(detection.bbox.p2.x * width),
-            int(detection.bbox.p2.y * height),
-        )
+        # Centroide
+        if detection.centroid is not None:
+            cx = int(np.clip(detection.centroid.x * width, 0, width - 1))
+            cy = int(np.clip(detection.centroid.y * height, 0, height - 1))
 
-        # Dibujo del bounding box
-        cv2.rectangle(
-            frame,
-            pt1,
-            pt2,
-            (0, 255, 0),
-            2,
-        )
+            cv2.circle(
+                frame,
+                (cx, cy),
+                CENTROID_RADIUS,
+                CENTROID_COLOR,
+                -1,
+            )
 
-        # Dibujo del centroide
-        cv2.circle(
-            frame,
-            (int(detection.centroid.x * width), int(detection.centroid.y * height)),
-            CENTROID_RADIUS,
-            CENTROID_COLOR,
-            -1,
-        )
+        # Máscara
+        vertices = detection.mask
 
-        # Dibujo de la mascara
-        colored_mask = np.zeros_like(frame)
-        colored_mask[detection.frame_mask > DEFAULT_MASK_THRESHOLD] = MASK_COLOR
-        frame = np.asarray(
-            cv2.addWeighted(
-            frame,
-            MASK_OVERLAY_BETA,
-            colored_mask,
-            MASK_OVERLAY_ALPHA,
-            MASK_OVERLAY_GAMMA,
-            ),
-            dtype=np.uint8,
-        )
+        if vertices and len(vertices) >= 3:
+            pts = np.array(
+                [
+                    (
+                        int(np.clip(p.x * width, 0, width - 1)),
+                        int(np.clip(p.y * height, 0, height - 1)),
+                    )
+                    for p in vertices
+                ],
+                dtype=np.int32,
+            )
 
-        # Dibujo de la etiqueta de clase y confianza
-        label = f"{detection.class_id}: {detection.confidence:.2f}"
-        cv2.putText(
-            frame,
-            label,
-            (pt1[0], pt1[1] - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (0, 255, 0),
-            2,
-        )
-    return np.asarray(frame, dtype=np.uint8)
+            cv2.fillPoly(combined_mask, [pts], MASK_COLOR)
+
+    # Aplica la máscara combinada con transparencia sobre el frame original.
+    cv2.addWeighted(
+        frame,
+        MASK_OVERLAY_BETA,
+        combined_mask,
+        MASK_OVERLAY_ALPHA,
+        MASK_OVERLAY_GAMMA,
+        dst=frame,  # <-- clave: in-place
+    )
+
+    return frame
