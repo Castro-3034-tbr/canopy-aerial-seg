@@ -2,45 +2,51 @@
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+import zipfile
 
 import cv2
 import numpy as np
 from fastapi import HTTPException
 
-from api.core.constants import (
-    DEFAULT_VIDEO_CODEC,
-    DEFAULT_VIDEO_FPS,
-    IMAGE_MEDIA_TYPE,
-    TEMP_IMAGE_SUFFIX,
-    TEMP_VIDEO_SUFFIX,
-    VIDEO_MEDIA_TYPE,
-)
-from common.types.media import OutputPathResult
+from common.types.media import Imagen
 from common.types.model import YoloModel
 
 from api.perception.yolo_inference import draw_results, predict
+
+from api.perception.analisis import analyze_results
 
 
 def process_image(
     yolo_model: YoloModel,
     contents: bytes,
     confidence_threshold: float,
-) -> OutputPathResult:
-    """Procesa una imagen utilizando el modelo YOLO y devuelve la ruta del archivo temporal con la imagen anotada.
+    overlap: tuple[float, float] = (0.1, 0.1),
+    gsd: float = 0.1,
+    test_mode: bool = False,
+) -> dict | Imagen:
+    """Procesa una imagen y devuelve métricas de área o la imagen anotada.
 
     Args:
-        yolo_model (ultralytics.yolo.engine.model.YOLO): El modelo YOLO cargado para realizar las predicciones.
-        contents (bytes): Los bytes de la imagen a procesar.
-        confidence_threshold (float): El umbral de confianza para filtrar las detecciones del modelo.
-
-    Raises:
-        HTTPException: Si no se pudo leer la imagen enviada.
-        HTTPException: Si no se pudo generar la imagen resultante.
+        yolo_model (YoloModel): Modelo YOLO cargado para realizar las predicciones.
+        contents (bytes): Bytes de la imagen a procesar.
+        confidence_threshold (float): Umbral de confianza para filtrar las detecciones.
+        overlap (tuple[float, float], optional): Fracción de la máscara a recortar
+            en cada dimensión para eliminar solapes. Por defecto (0.1, 0.1).
+        gsd (float, optional): Ground Sample Distance en metros por píxel para
+            calcular el área real. Por defecto 0.1.
+        test_mode (bool, optional): Si True, devuelve la imagen anotada en
+            lugar de las métricas (útil para pruebas). Por defecto False.
 
     Returns:
-        tuple[Path, str]: Una tupla que contiene la ruta del archivo temporal con la imagen anotada y el tipo de medio (MIME type) correspondiente a la imagen.
+        dict | Imagen: Si `test_mode` es False, devuelve un diccionario con el
+            resumen de áreas (clave `total_area_m2`) y la lista `metrics`.
+            Si `test_mode` es True, devuelve la imagen anotada (`Imagen`,
+            típicamente un `np.ndarray`).
+
+    Raises:
+        HTTPException: con código 400 si no se puede decodificar la imagen.
     """
     # Lectura de la imagen desde los bytes recibidos
     frame = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
@@ -54,119 +60,102 @@ def process_image(
     frame = np.asarray(frame, dtype=np.uint8)
 
     # Realización de las predicciones utilizando el modelo YOLO y anotación de la imagen con los resultados
-    results = predict(model=yolo_model, frame=frame, confidence_threshold=confidence_threshold)
+    results = predict(model=yolo_model, frame=frame, confidence_threshold=confidence_threshold, overlap=overlap)
+
+    # Anotacion de la imagen con los resultados de la inferencia
     annotated_frame = draw_results(frame=frame, results=results)
 
-    # Creación de un archivo temporal para guardar la imagen anotada
-    with NamedTemporaryFile(delete=False, suffix=TEMP_IMAGE_SUFFIX) as output_file:
-        output_path = Path(output_file.name)
+    # Si estamos en modo de prueba, devolvemos las detecciones sin procesar en lugar de la imagen anotada.
+    if test_mode:
+        return annotated_frame
 
-    # Comprobación de que se pudo guardar la imagen anotada en el archivo temporal
-    if not cv2.imwrite(str(output_path), annotated_frame):
-        output_path.unlink(missing_ok=True)
-        raise HTTPException(
-            status_code=500,
-            detail="No se pudo generar la imagen resultante.",
-        )
-
-    return output_path, IMAGE_MEDIA_TYPE
+    #Calculo del area real de las mascaras
+    mask_metrics = analyze_results(result=results, gsd=gsd)
+    return mask_metrics
 
 
-def process_video(
+def process_zip(
     yolo_model: YoloModel,
     contents: bytes,
     confidence_threshold: float,
-) -> OutputPathResult:
-    """Procesa un video utilizando el modelo YOLO y devuelve la ruta del archivo temporal con el video anotado.
+    gsd: float = 0.1,
+) -> dict:
+    """Procesa un archivo ZIP con imágenes y agrega el área total por archivo.
 
     Args:
-        yolo_model (ultralytics.yolo.engine.model.YOLO): El modelo YOLO cargado para realizar las predicciones.
-        contents (bytes): Los bytes del video a procesar.
-        confidence_threshold (float): El umbral de confianza para filtrar las detecciones del modelo.
-
-    Raises:
-        HTTPException: Si no se pudo abrir el video enviado.
-        HTTPException: Si no se pudo generar el video resultante.
-        HTTPException: Si no se pudieron obtener las dimensiones del video.
+        yolo_model (YoloModel): Modelo YOLO cargado para realizar las predicciones.
+        contents (bytes): Bytes del archivo ZIP a procesar.
+        confidence_threshold (float): Umbral de confianza para filtrar las detecciones.
+        gsd (float, optional): Ground Sample Distance en metros por píxel para
+            calcular el área real. Por defecto 0.1.
 
     Returns:
-        tuple[Path, str]: Una tupla que contiene la ruta del archivo temporal con el video anotado y el tipo de medio (MIME type) correspondiente al video.
+        dict: Diccionario con `total_area_m2` (float) y `metrics` (lista) donde
+            cada entrada contiene `file` y `total_area_m2` y, opcionalmente,
+            `metrics` con el desglose por etiquetas.
+
+    Raises:
+        HTTPException: con código 400 si el contenido no es un ZIP válido.
     """
 
-    # Creación de archivos temporales para el video de entrada y el video de salida
-    with NamedTemporaryFile(delete=False, suffix=TEMP_VIDEO_SUFFIX) as input_file:
-        input_file.write(contents)
-        input_path = Path(input_file.name)
-
-    # Creación de un archivo temporal para guardar el video anotado
-    with NamedTemporaryFile(delete=False, suffix=TEMP_VIDEO_SUFFIX) as output_file:
-        output_path = Path(output_file.name)
-
-    # Apertura del video de entrada utilizando OpenCV y comprobación de que se pudo abrir correctamente
-    capture = cv2.VideoCapture(str(input_path))
-    if not capture.isOpened():
-        # Liberación del recurso de captura y eliminación de los archivos temporales antes de lanzar la excepción
-        input_path.unlink(missing_ok=True)
-        output_path.unlink(missing_ok=True)
-        raise HTTPException(
-            status_code=400,
-            detail="No se pudo abrir el video enviado.",
-        )
-
-    # Obtención de los FPS, ancho y alto del video para configurar el VideoWriter
-    fps = capture.get(cv2.CAP_PROP_FPS)
-    if not fps or fps <= 0:
-        fps = DEFAULT_VIDEO_FPS
-    width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    if width <= 0 or height <= 0:
-        # Liberación del recurso de captura y eliminación de los archivos temporales antes de lanzar la excepción
-        capture.release()
-        input_path.unlink(missing_ok=True)
-        output_path.unlink(missing_ok=True)
-        raise HTTPException(
-            status_code=400,
-            detail="No se pudieron obtener las dimensiones del video.",
-        )
-
-    # Creación del VideoWriter para escribir el video anotado
-    writer = cv2.VideoWriter(
-        str(output_path),
-        cv2.VideoWriter_fourcc(*DEFAULT_VIDEO_CODEC),
-        fps,
-        (width, height),
-    )
-    if not writer.isOpened():
-        capture.release()
-        input_path.unlink(missing_ok=True)
-        output_path.unlink(missing_ok=True)
-        raise HTTPException(
-            status_code=500,
-            detail="No se pudo generar el video resultante.",
-        )
+    analyze_results_total = {
+        "total_area_m2": 0.0,
+        "metrics": []
+    }
 
     try:
-        # Bucle de procesamiento de cada frame del video
-        while True:
-            # Lectura de un frame del video
-            success, frame = capture.read()
-            if not success:
-                break
+        # Desempaquetamos el ZIP en memoria
+        with zipfile.ZipFile(io.BytesIO(contents)) as archive:
+            for member_name in archive.namelist():
+                # Comprobacion de que el miembro es un archivo de imagen valido por su extension
+                if Path(member_name).suffix.lower() not in {".jpg", ".jpeg", ".png", ".bmp", ".webp"}:
+                    continue
 
-            # Conversión explícita a uint8 para que sea compatible con el modelo YOLO
-            frame = np.asarray(frame, dtype=np.uint8)
+                # Lectura de la imagen desde el ZIP
+                with archive.open(member_name) as member_file:
+                    file_bytes = member_file.read()
 
-            # Realización de las predicciones utilizando el modelo YOLO y anotación del frame con los resultados
-            results = predict(model=yolo_model, frame=frame, confidence_threshold=confidence_threshold)
-            annotated_frame = draw_results(frame=frame, results=results)
+                # Procesamiento de la imagen utilizando el mismo flujo que en process_image
+                frame = cv2.imdecode(np.frombuffer(file_bytes, np.uint8), cv2.IMREAD_COLOR)
+                if frame is None:
+                    continue
 
-            # Escritura del frame anotado en el video de salida
-            writer.write(annotated_frame)
+                # Procesamos la imagen
+                image_results = process_image(
+                    yolo_model=yolo_model,
+                    contents=file_bytes,
+                    confidence_threshold=confidence_threshold,
+                    gsd=gsd,
+                )
 
-    finally:
-        # Liberación de los recursos de captura y escritura, y eliminación del archivo temporal de entrada
-        capture.release()
-        writer.release()
-        input_path.unlink(missing_ok=True)
+                # Validamos el resultado: esperamos un diccionario con 'total_area_m2'
+                if not isinstance(image_results, dict) or "total_area_m2" not in image_results:
+                    # Si no se obtiene métricas, saltamos este miembro pero lo registramos
+                    analyze_results_total["metrics"].append({
+                        "file": member_name,
+                        "error": "no_metrics_generated",
+                    })
+                    continue
 
-    return output_path, VIDEO_MEDIA_TYPE
+                # Actualizamos los resultados totales y guardamos el detalle por archivo
+                area = float(image_results.get("total_area_m2", 0.0))
+                analyze_results_total["total_area_m2"] += area
+                metrics_entry = {
+                    "file": member_name,
+                    "total_area_m2": area,
+                }
+
+                # Si el análisis por imagen incluye un desglose, lo agregamos
+                if "metrics" in image_results:
+                    metrics_entry["metrics"] = image_results["metrics"]
+
+                analyze_results_total["metrics"].append(metrics_entry)
+
+        # Devolvemos el resumen total de las áreas calculadas para todas las imágenes procesadas.
+        return analyze_results_total
+
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudo leer el archivo ZIP enviado.",
+        ) from exc
