@@ -1,0 +1,37 @@
+{
+  "pathData": "./data/data.yaml",
+  "pathResult": "./results",
+  "task": {
+    "train": true,
+    "val": true,
+    "predict": true
+  },
+  "model": {
+    "path": "./models/best.pt"
+  },
+  "train": {
+    "augmentation": false,
+    "epochs": 200,
+    "batch_size": 4,
+    "img_size": 720,
+    "device": "cuda",
+    "seed": 42,
+    "patience": 100,
+    "workers": 4,
+    "mosaic": true
+  },
+  "val": {
+    "batch_size": 4,
+    "img_size": 720,
+    "device": "cuda",
+    "workers": 4
+  },
+  "predict": {
+    "source": "./data/test/images",
+    "img_size": 720,
+    "device": "cuda",
+    "save_results": true,
+    "save_txt": true,
+    "save_conf": true
+  }
+}

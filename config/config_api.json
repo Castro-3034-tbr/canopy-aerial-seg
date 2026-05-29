@@ -1,0 +1,15 @@
+{
+  "API": {
+    "IP": "127.0.0.1",
+    "PORT": 8080
+  },
+  "SavePath": {
+    "Logs": "./output/logs",
+    "Inference": "./output/inference"
+  },
+  "Model": {
+    "Name": "yolo26n-seg",
+    "Path": "models/yolo_vegetation.pt",
+    "Device": "cpu"
+  }
+}

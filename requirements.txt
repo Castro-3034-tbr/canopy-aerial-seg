@@ -1,0 +1,19 @@
+# Requisitos del proyecto
+fastapi
+uvicorn
+python-multipart
+pydantic>=2
+typing-extensions
+
+# Ciencia de datos / ML
+numpy
+pandas
+matplotlib
+Pillow
+opencv-python-headless
+torch
+ultralytics
+
+# Otros
+av
+paho-mqtt

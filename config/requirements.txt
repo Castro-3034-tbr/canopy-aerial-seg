@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+python-multipart
+
+numpy
+opencv-python-headless
+pandas
+
+ultralytics
+av
+paho-mqtt
+ultralytics
+pydantic>=2
