@@ -111,26 +111,6 @@ def start_stream(
 
 ) -> dict[str, Any]:
     """Inicia un stream RTSP para procesamiento en tiempo real.
-
-    Args:
-        request (Request): petición entrante de FastAPI.
-        session_id (str | None): identificador del stream; si no se proporciona,
-            se genera uno automáticamente.
-        rtsp_url (str): URL RTSP del flujo de video.
-        save_log (bool): si True, se guardan logs de detecciones.
-        save_inference (bool): si True, se guardan imágenes con las inferencias.
-        confidence_threshold (float): umbral para filtrar detecciones por confianza.
-        mqtt_host (str): dirección IP o nombre del broker MQTT.
-        mqtt_port (str): puerto del broker MQTT.
-        mqtt_topic (str): topic MQTT para publicar detecciones.
-        overlap (tuple[float, float]): tupla (x, y) para recortar solapes en máscaras.
-        gsd (float): Ground Sample Distance en metros/píxel para cálculo de áreas.
-
-    Returns:
-        dict[str, Any]: detalles del stream iniciado.
-
-    Raises:
-        HTTPException: con código 503 si el runtime no está inicializado.
     """
 
     # Verifica que el runtime de la aplicacion este disponible antes de iniciar el stream.
@@ -182,17 +162,6 @@ def stop_stream(
     ),
 ) -> dict[str, Any]:
     """Detiene un stream activo o todos si no se indica `session_id`.
-
-    Args:
-        request (Request): petición entrante de FastAPI.
-        session_id (str | None): si se proporciona, detiene solo ese stream;
-            si no, detiene todas las sesiones activas.
-
-    Returns:
-        dict[str, Any]: respuesta del gestor.
-
-    Raises:
-        HTTPException: con código 503 si el runtime no está inicializado.
     """
 
     # Verifica que el runtime de la aplicacion este disponible antes de detener el stream.
@@ -223,19 +192,6 @@ async def predict_file(
     )] = 0.1,
 ) -> object:
     """Procesa un archivo subido (imagen o ZIP) y devuelve el resultado del análisis.
-
-    Args:
-            request (Request): petición entrante de FastAPI.
-            file (UploadFile): archivo subido por el usuario (imagen o ZIP).
-            confidence_threshold (float): umbral de confianza para las detecciones.
-            overlap (tuple[float, float]): recorte de solape en máscaras.
-            gsd (float): Ground Sample Distance en metros/píxel.
-
-    Returns:
-            object: resultado del análisis (estructura JSON definida por el pipeline).
-
-    Raises:
-            HTTPException: con código 415 si el tipo de archivo no es soportado.
     """
 
     # Verifica que el runtime de la aplicacion este disponible antes de procesar el archivo.
@@ -305,19 +261,6 @@ async def test_detection(
     )] = (0.1, 0.1),
 ) -> FileResponse:
     """Procesa una imagen en modo prueba y devuelve un archivo JPEG anotado.
-
-    Args:
-        request (Request): petición entrante de FastAPI.
-        file (UploadFile): imagen subida por el usuario.
-        confidence_threshold (float): umbral de confianza para las detecciones.
-        overlap (tuple[float, float]): recorte de solape en máscaras.
-
-    Returns:
-        FileResponse: respuesta con la imagen JPEG anotada.
-
-    Raises:
-        HTTPException: con código 415 si el tipo de archivo no es soportado.
-        HTTPException: con código 500 si no se puede generar o escribir la imagen.
     """
 
     # Verifica que el runtime de la aplicacion este disponible antes de procesar el archivo.
@@ -392,15 +335,6 @@ async def test_detection(
 @router.get("/health")
 def health(request: Request) -> dict[str, Any]:
     """Comprueba salud de la API y devuelve estado de los streams activos.
-
-    Args:
-        request (Request): petición entrante de FastAPI.
-
-    Returns:
-        dict[str, Any]: diccionario con claves `msg` y `streams`.
-
-    Raises:
-        HTTPException: con código 503 si el runtime no está inicializado.
     """
     _require_runtime(request=request)
     # Expone tanto el estado general como el detalle de los streams activos.

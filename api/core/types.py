@@ -15,7 +15,7 @@ from multiprocessing import Process
 from pathlib import Path
 from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from typing_extensions import TypedDict
 
 from common.types.base import StrictModel
@@ -44,8 +44,8 @@ class ApiConfig(StrictModel):
         port: Puerto TCP válido
     """
 
-    ip: IPv4 = Field(min_length=1)
-    port: int = Field(ge=1, le=65535)
+    ip: IPv4 = Field(validation_alias=AliasChoices("ip", "IP"), min_length=1)
+    port: int = Field(validation_alias=AliasChoices("port", "PORT"), ge=1, le=65535)
 
     @field_validator("ip")
     @classmethod
@@ -72,8 +72,8 @@ class SavePathConfig(StrictModel):
     Rutas de persistencia del sistema.
     """
 
-    logs: Path
-    inference: Path
+    logs: Path = Field(validation_alias=AliasChoices("logs", "Logs"))
+    inference: Path = Field(validation_alias=AliasChoices("inference", "Inference"))
 
 
 class ModelConfig(StrictModel):
@@ -86,9 +86,9 @@ class ModelConfig(StrictModel):
         device: Dispositivo (cpu, cuda, etc.)
     """
 
-    name: str = Field(min_length=1)
-    path: Path
-    device: str = Field(min_length=1)
+    name: str = Field(validation_alias=AliasChoices("name", "Name"), min_length=1)
+    path: Path = Field(validation_alias=AliasChoices("path", "Path"))
+    device: str = Field(validation_alias=AliasChoices("device", "Device"), min_length=1)
 
     @field_validator("name", "device")
     @classmethod
@@ -123,9 +123,9 @@ class AppConfig(StrictModel):
     Configuración global de la aplicación.
     """
 
-    api: ApiConfig
-    save_path: SavePathConfig
-    model: ModelConfig
+    api: ApiConfig = Field(validation_alias=AliasChoices("api", "API"))
+    save_path: SavePathConfig = Field(validation_alias=AliasChoices("save_path", "SavePath"))
+    model: ModelConfig = Field(validation_alias=AliasChoices("model", "Model"))
 
 
 # ==========================================================
@@ -173,6 +173,7 @@ class FrameQueueLike(Protocol):
     def put_nowait(self, obj: FramePackage) -> None: ...
     def get(self, timeout: float | None = None) -> FramePackage: ...
     def get_nowait(self) -> FramePackage: ...
+    def empty(self) -> bool: ...
 
 
 @runtime_checkable

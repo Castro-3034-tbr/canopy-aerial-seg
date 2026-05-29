@@ -13,8 +13,8 @@ import time
 from pathlib import Path
 
 import cv2
-import pandas as pd
 import numpy as np
+import pandas as pd
 from common.types.model import YoloModel
 
 from api.mqtt.connection import (
@@ -31,6 +31,7 @@ from api.core.constants import (
     FRAME_FILENAME_SUFFIX,
     FRAME_QUEUE_TIMEOUT_SECONDS,
 )
+from common.constants import PROJECT_ROOT
 
 from api.perception.analisis import (
     analyze_results,
@@ -87,7 +88,7 @@ def processor_process(
     )
 
     # Preparacion de rutas de guardado para logs e inferencias visuales.
-    project_root = Path.cwd()
+    project_root = PROJECT_ROOT
     logs_dir = project_root / project_data.save_path_logs
     inference_dir = project_root / project_data.save_path_inference
 
@@ -109,7 +110,10 @@ def processor_process(
         inference_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        while project_data.processor_running.is_set():
+        while (
+            project_data.processor_running.is_set()
+            or not shared_data.frame_queue.empty()
+        ):
             try:
                 # Espera un frame sin bloquear indefinidamente.
                 package: FramePackage = shared_data.frame_queue.get(
@@ -120,6 +124,10 @@ def processor_process(
                 frame_id = package.frame_id
 
             except queue.Empty:
+                # Si ya no se aceptan mas frames y la cola quedo vacia,
+                # finaliza el proceso de consumo.
+                if not project_data.processor_running.is_set():
+                    break
                 logger.debug(
                     "No se recibio ningun frame en el tiempo de espera "
                     "session_id=%s timeout_s=%s",

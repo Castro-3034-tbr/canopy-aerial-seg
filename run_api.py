@@ -33,9 +33,9 @@ def main() -> None:
     configure_logging()
 
     # Obtiene la configuracion de la API desde el archivo principal.
-    api_config = load_api_config(Path(CONFIG_DIR) / "config_api.json").API
-    api_host = api_config.IP
-    api_port = api_config.PORT
+    api_config = load_api_config(Path(CONFIG_DIR) / "config_api.json").api
+    api_host = api_config.ip
+    api_port = api_config.port
 
     if not api_host or not api_port:
         raise ValueError("IP o puerto de la API no especificados en la configuracion.")
